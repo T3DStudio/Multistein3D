@@ -7,7 +7,6 @@ Look for latest version here: t3dstudio.ru
 
 Discord server of project: discord.gg/gCupVGM
 
-
 Programs used:
 - Lazarus 2.0.12 (i386-win32-win32/win64)  https://www.lazarus-ide.org/
 - FPC: 3.2.0  https://www.freepascal.org/
