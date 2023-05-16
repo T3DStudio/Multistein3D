@@ -1,0 +1,14 @@
+program wme;
+
+uses
+  Forms,
+  wmeu in 'wmeu.pas' {Form1};
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.Title := 'Wolf3ddm Map Editor';
+  Application.CreateForm(TForm1, Form1);
+  Application.Run;
+end.
