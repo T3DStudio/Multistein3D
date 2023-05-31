@@ -15,3 +15,10 @@ Programs used:
 DLLs(included):
 - SDL2-2.0.16
 - openAL
+
+How to compile?
+The simplest way(windows OS):
+- install Lazarus 2.0.12(this contains FPC so you don't need to install it separately) using default options;
+- download the project or make "git clone ...";
+- copy sdl2 folder to "C:\lazarus\fpc\3.2.0\units\i386-win32\";
+- open T3D_FPS.lpi and press F9(compile and run) or CTRL+F9(just compile).
