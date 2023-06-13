@@ -21,6 +21,5 @@ replay/*
 demos/*
 music/*
 lib/*
-sdl2/*
 graphic/*
 backup/*
