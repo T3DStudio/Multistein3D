@@ -13,7 +13,7 @@ fr_2fps            = fr_fps*2;
 fr_hfps            = fr_fps div 2;
 fr_5fps            = fr_fps*5;
 
-ticksinminute      = fr_fps*60;
+TicksPerMinute     = fr_fps*60;
 
 map_mw             = 64;           // 1-64
 map_miw            = map_mw-1;     // 0-63
@@ -32,6 +32,8 @@ NetMapParts        = 7;
 NetMapPartSize     = (MaxMapBuffer div NetMapParts)+NetMapParts;
 
 PlayerHitSetSize   = (MaxPlayers div 8);
+
+net_advertise_port0= 63123;
 
 AmmoTypesN         = 2; // 0..2
 WeaponsN           = 4; // 0..4
@@ -67,7 +69,7 @@ str_demofolder     = 'demos\';
 str_demoext        = '.m3dd';
 
 str_mcaption       = 'Multistein 3D';
-str_ver            = 'v1.62';
+str_ver            = 'v1.63';
 str_wcaption       = str_mcaption+' ('+str_ver+')';
 
 //door_bar_closed    = vid_fps;
@@ -154,6 +156,7 @@ nmid_sv_mappart     = 155;
 nmid_cl_maprequest  = 160;
 nmid_sv_ping        = 165;
 nmid_cl_ping        = 166;
+nmid_sv_advertise   = 200;
 
 net_upd_time        : array[false..true] of word = (2,1);
 
@@ -297,6 +300,7 @@ mi_dskipf          = 88;
 mi_dskipb          = 89;
 mi_votey           = 90;
 mi_voten           = 91;
+mi_serversrch      = 92;
 
 mi_caption         = 253;
 mi_empty           = 254;
@@ -430,6 +434,7 @@ str_graphic_dir    ='graphic\';
     str_msvip      ='Server ip';
     str_msvport    ='Server port';
     str_msvupd     ='Update rooms list';
+    str_msvslc     ='Search for local server';
 {--}str_mplopt     ='Player options';
     str_mplname    ='Name';
     str_mplteam    ='Team';
@@ -532,6 +537,7 @@ str_graphic_dir    ='graphic\';
     str_tojoin     ='To join the game press ';
     str_following  ='Following ';
     str_respawn    ='To respawn press ';
+    str_AdvPortError= 'Cannot use a port (63123) to browse the local server!';
 
     str_FLAGS_str1    = 'R - items respawn, W - weapon stay, I - instagib';
     str_FLAGS_str2    = 'T - teams, M - random map, V - votes enabled';
@@ -579,6 +585,8 @@ wy2mwkey           : array[false..true] of cardinal = (mw_up,mw_down);
 
 vote_yes           = 2;
 vote_no            = 1;
+
+net_advertise_Period=fr_fps*2;
 
 MaxXYBuffer        = fr_fps;
 str_rconadmin      = ': rcon access granted!';

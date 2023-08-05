@@ -336,7 +336,7 @@ begin
 
       scores_save_need:=false;
       scores_message  :='';
-      _screenshot(_room^.mapname);
+      MakeScreenShot(_room^.mapname);
    end;
 
    ClearScreen(@c_black);

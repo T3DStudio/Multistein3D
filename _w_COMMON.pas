@@ -785,7 +785,7 @@ begin
    if(vid_aspecti<aspecti)then screenshot_w:=trunc(screenshot_h*vid_aspect);
 end;
 
-procedure _screenshot(mapname:shortstring);
+procedure MakeScreenShot(mapname:shortstring);
 var s: shortstring;
    tt: pSDL_Surface;
 begin

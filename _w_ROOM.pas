@@ -42,7 +42,7 @@ begin
    begin
       time_min_prev:=time_min;
       time_sec:=(time_tick div fr_fps) mod 60;
-      time_min:=time_tick div ticksinminute;
+      time_min:=time_tick div TicksPerMinute;
    end;
 end;
 

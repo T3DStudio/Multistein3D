@@ -2,12 +2,13 @@
 
 var
 
-_event            : PSDl_Event;
+_event            : PSDl_Event = nil;
 
 _MC               : boolean = false;
 
-net_socket        : PUDPSocket;
-net_buffer        : PUDPpacket;
+net_socket        : PUDPSocket = nil;
+net_socket_port   : word = 0;
+net_buffer        : PUDPpacket = nil;
 net_bufpos        : LongInt = 0;
 
 sv_name           : shortstring = '';
@@ -47,6 +48,7 @@ net_packets_in0   : word=0;
 net_packets_out0  : word=0;
 net_packets_t     : word=0;
 net_packetsid_in  : array[byte] of byte;
+net_SearchLocalSV : boolean = false;
 
 server_ping_p     : cardinal = 0;
 server_ping_t     : cardinal = 0;
@@ -178,7 +180,7 @@ last_key_m        : integer = 0;
 hud_console       : boolean = false;
 hud_last_mesn     : integer = 0;
 hud_mask          : TColor;
-hud_mask_t        : integer;
+hud_mask_t        : integer = 0;
 hud_noammoclk     : integer = 0;
 hud_chat_y        : integer = 0;
 hud_guni,
@@ -320,7 +322,6 @@ hud_fscale,
 hud_ifscale       : single;
 
 
-
 c_purple,
 c_green,
 c_lgreen,
@@ -347,7 +348,6 @@ c_lime            : TColor;
 
 team_color        : array[0..MaxTeamsI] of PTColor;
 
-
 snd_weapon,
 snd_chain,
 snd_death,
@@ -366,12 +366,17 @@ snd_skinP   : array[0..3] of TALuint;
 
 {$ELSE}
 
-_bans             : array of TBan;
-_bann             : word = 0;
+_bans              : array of TBan;
+_bann              : word = 0;
 
-rcon_pass         : shortstring = 'wolfadmin';
+rcon_pass          : shortstring = 'wolfadmin';
 
-sv_net_port       : word = 35700;
-sv_roomcfgfn      : shortstring = 'rooms.cfg';
+sv_net_port        : word = 35700;
+sv_roomcfgfn       : shortstring = 'rooms.cfg';
+
+net_advertise      : boolean = true;
+net_advertise_Timer: integer = 0;
+net_advertise_ip   : cardinal = cardinal.MaxValue;
+net_advertise_port : word = 0;
 
 {$ENDIF}

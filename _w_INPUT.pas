@@ -38,7 +38,7 @@ kt_keyboard: case key of
      end;
 end;
 
-procedure _ActKeyTime(pkeystate:pinteger;keytype:byte);
+procedure ActKeyTime(pkeystate:pinteger;keytype:byte);
 begin
    if(pkeystate^<0)
    then pkeystate^:=0
@@ -54,7 +54,7 @@ begin
    cam_turn+=x*(window_w/vid_log_w)*m_speed*0.0025;
 end;
 
-procedure _ActKeysClear;
+procedure ActKeysClear;
 var i:byte;
 begin
    for i:=0 to 255 do cl_acts[i]:=0;
@@ -67,9 +67,9 @@ begin
    clear_keys:=false;
 
    for i:=0 to 255 do
-   _ActKeyTime(@cl_acts[i],cl_keys_t[i]);
+   ActKeyTime(@cl_acts[i],cl_keys_t[i]);
 
-   _ActKeyTime(@last_key_m,last_key_t);
+   ActKeyTime(@last_key_m,last_key_t);
 
    cam_turn:=0;
 
@@ -105,7 +105,7 @@ begin
 
    KeyboardStringRussian;
 
-   if(clear_keys)then _ActKeysClear;
+   if(clear_keys)then ActKeysClear;
 
    G_Mouse(cl_acts[a_TR]-cl_acts[a_TL]);
 end;
@@ -198,15 +198,16 @@ begin
 
       if(cl_acts[a_alt]=0)then
       begin
-      if(cl_acts[a_C1]=1)then net_sendchat(player_chat1)else
-      if(cl_acts[a_C2]=1)then net_sendchat(player_chat2)else
-      if(cl_acts[a_C3]=1)then net_sendchat(player_chat3)else
-      if(cl_acts[a_C4]=1)then net_sendchat(player_chat4)else
-      if(cl_acts[a_C5]=1)then net_sendchat(player_chat5);
+      if(cl_acts[a_C1    ]=1)then net_sendchat(player_chat1)else
+      if(cl_acts[a_C2    ]=1)then net_sendchat(player_chat2)else
+      if(cl_acts[a_C3    ]=1)then net_sendchat(player_chat3)else
+      if(cl_acts[a_C4    ]=1)then net_sendchat(player_chat4)else
+      if(cl_acts[a_C5    ]=1)then net_sendchat(player_chat5);
 
-      if(cl_acts[a_votey]=1)then net_sendcmd(cmd_voteyes)else
-      if(cl_acts[a_voten]=1)then net_sendcmd(cmd_voteno );
+      if(cl_acts[a_votey ]=1)then net_sendcmd(cmd_voteyes)else
+      if(cl_acts[a_voten ]=1)then net_sendcmd(cmd_voteno );
       end;
+
       if(cl_acts[a_dpause]=1)then demo_play_pause:=not demo_play_pause;
       if(cl_acts[a_dskipb]=1)then
       begin
@@ -243,21 +244,21 @@ begin
     if(cl_acts[a_enter]=1)then
     begin
        ScreenToggleWindowed;
-       _ActKeysClear;
+       ActKeysClear;
        exit;
     end;
    if(not hud_console)then
     if(cl_acts[a_SS]=1)then
     begin
-       _screenshot(_room^.mapname);
-       _ActKeysClear;
+       MakeScreenShot(_room^.mapname);
+       ActKeysClear;
        exit;
     end;
    if(cl_acts[a_CO]=1)then
    begin
       hud_console:=not hud_console;
       chat_line:=false;
-      _ActKeysClear;
+      ActKeysClear;
       MouseGrabCheck;
       exit;
    end;

@@ -672,7 +672,7 @@ ds_read : begin
                 gdatar_roominfo(aproom,demo_file);
                 time_min :=_rudata_byte(demo_file,0);
                 time_sec :=_rudata_byte(demo_file,0);
-                time_tick:=(time_min*ticksinminute)+(time_sec*fr_fps);
+                time_tick:=(time_min*TicksPerMinute)+(time_sec*fr_fps);
                 mi       := mname2n(mapname);
                 if(mi=65535)then mi:=AddMap(mapname);
                 if(mi=65535)then mi:=0;

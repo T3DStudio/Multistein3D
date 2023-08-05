@@ -103,6 +103,9 @@ begin
    menu_demoi:=-1;
 
 {-}  mmladd(mi_caption       ,str_mnetwork    ,''          );         //-- Network
+     mmladd(zi(mi_serversrch ,
+     (net_socket_port<>net_advertise_port0))
+                             ,str_msvslc      ,b2yn[net_SearchLocalSV]);
      mmladd(mi_serverip      ,str_msvip       ,cl_net_svips);
      mmladd(mi_serverport    ,str_msvport     ,cl_net_svps );
      mmladd(mi_serverupd     ,str_msvupd      ,''          );
@@ -288,6 +291,7 @@ begin
     mi_demorecord   : demo_record:=not demo_record;
     mi_resolution   : RCResolutionNext(s>-1);
     mi_localmapr    : menu_reload_maps;
+    mi_serversrch   : net_SearchLocalSV:=not net_SearchLocalSV;
     mi_soundvolume  : if(s<>2)then
                              begin _bn(@snd_volume ,sign(s),0,100); snd_volume1:=snd_volume/100;end;
     mi_mousespeed   : if(s<>2)then _in(@m_speed    ,sign(s),1,500);
@@ -464,14 +468,14 @@ a_paste,
 0       : begin
           menu_update:=true;
           case menu_txtT[menu_sfix] of
-mi_serverip    : textedit(@cl_net_svips  ,chars_addr   ,15     );
-mi_serverport  : textedit(@cl_net_svps   ,chars_digits ,5      );
-mi_playername  : textedit(@player_name   ,chars_common ,NameLen);
-mi_chat1_str   : textedit(@player_chat1  ,chars_common ,NameLen);
-mi_chat2_str   : textedit(@player_chat2  ,chars_common ,NameLen);
-mi_chat3_str   : textedit(@player_chat3  ,chars_common ,NameLen);
-mi_chat4_str   : textedit(@player_chat4  ,chars_common ,NameLen);
-mi_chat5_str   : textedit(@player_chat5  ,chars_common ,NameLen);
+mi_serverip    : textedit(@cl_net_svips,chars_addr   ,15     );
+mi_serverport  : textedit(@cl_net_svps ,chars_digits ,5      );
+mi_playername  : textedit(@player_name ,chars_common ,NameLen);
+mi_chat1_str   : textedit(@player_chat1,chars_common ,NameLen);
+mi_chat2_str   : textedit(@player_chat2,chars_common ,NameLen);
+mi_chat3_str   : textedit(@player_chat3,chars_common ,NameLen);
+mi_chat4_str   : textedit(@player_chat4,chars_common ,NameLen);
+mi_chat5_str   : textedit(@player_chat5,chars_common ,NameLen);
           else
           end;
           end;

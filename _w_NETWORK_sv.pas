@@ -140,6 +140,16 @@ begin
            pause_snap:=net_upd_time[net_fupd];
         end;
    end;
+
+   if(net_advertise)then
+     if(net_advertise_Timer<=0)then
+     begin
+        net_advertise_Timer:=net_advertise_Period;
+        net_clearbuffer;
+        net_writebyte(nmid_sv_advertise);
+        net_send(net_advertise_ip,net_advertise_port);
+     end
+     else net_advertise_Timer-=1;
 end;
 
 

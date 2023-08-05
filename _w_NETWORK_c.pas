@@ -13,17 +13,21 @@ begin
    end;
 end;
 
-function net_UpSocket(port:word):boolean;
+function net_UpSocket(port:word;force:boolean):boolean;
 begin
    net_UpSocket:=false;
 
-   net_DownSocket;
-
-   net_socket:=SDLNet_UDP_Open(port);
-   if(net_socket=nil)then
+   if(port<>net_socket_port)or(net_socket=nil)or(force)then
    begin
-      WriteSDLError('SDLNet_UDP_Open');
-      exit;
+      net_DownSocket;
+
+      net_socket:=SDLNet_UDP_Open(port);
+      if(net_socket=nil)then
+      begin
+         WriteSDLError('SDLNet_UDP_Open');
+         exit;
+      end;
+      net_socket_port:=port;
    end;
 
    net_UpSocket:=true;

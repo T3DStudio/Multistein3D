@@ -14,7 +14,6 @@ begin
          if(demo_record)then
            if((cl_net_cstat=cstate_snap)and(cl_net_mpartn>NetMapParts))
            or(menu_locmatch)then demo_cstate:=ds_write;
-         //(game_mode=gm_game)and
       end;
 
       if(cl_net_cstat>0)or(demo_cstate=ds_read)
@@ -122,10 +121,11 @@ procedure ReadParam(s,v:shortstring);
 begin
    case s of
 {$IFDEF FULLGAME}
-'-nosound'    : nosound:=true;
+'-nosound'       : nosound:=true;
 {$ELSE}
-'-port'       : sv_net_port :=s2w(v);
-'-roomscfg'   : sv_roomcfgfn:=v;
+'-port'          : sv_net_port  :=s2w(v);
+'-roomscfg'      : sv_roomcfgfn :=v;
+'-localadvertise': net_advertise:=s2i(v)<>0;
 {$ENDIF}
    end;
 end;
@@ -201,18 +201,24 @@ begin
    sv_roomsinfoc:=0;
    setlength(sv_roomsinfo,0);
 
-   net_UpSocket(0);
-
    ResetLocalGame;
    demos_RemakeList;
+
+   if(not net_UpSocket(net_advertise_port0,true))then
+   begin
+      _log_add(_room,log_local,str_AdvPortError);
+      if(not net_UpSocket(0,true))then exit;
+   end;
 
    cl_net_stat:=str_nconnected;
 
    {$ELSE}
    writeln(str_wcaption,' UDP port: ',sv_net_port);
 
-   net_UpSocket(sv_net_port);
-   if(net_socket=nil)then exit;
+   if(not net_UpSocket(sv_net_port,true))then exit;
+
+   net_advertise_ip  :=ip2c('255.255.255.255');
+   net_advertise_port:=swap(net_advertise_port0);
 
    room_loadcfg(sv_roomcfgfn);
    {$ENDIF}

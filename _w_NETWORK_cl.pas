@@ -69,7 +69,7 @@ begin
       cur_players    :=0;
       time_min       :=net_readbyte;
       time_sec       :=net_readbyte;
-      time_tick      :=(time_min*ticksinminute)+(time_sec*fr_fps);
+      time_tick      :=(time_min*TicksPerMinute)+(time_sec*fr_fps);
       time_scorepause:=_rudata_timer(nil);
       vote_time      :=_rudata_timer(nil);
       if(vote_time>0)then
@@ -361,10 +361,22 @@ begin
    // IN
    while(net_Receive>0)do
    begin
+      mid:=net_readbyte;
+
+      if(mid=nmid_sv_advertise)and(net_SearchLocalSV)then
+      begin
+         net_SearchLocalSV:=false;
+         menu_update :=true;
+         cl_net_svips:=c2ip(net_LastinIP);
+         cl_net_svps :=w2s(swap(net_LastinPort));
+           ip_txt(@cl_net_svip,@cl_net_svips);
+         port_txt(@cl_net_svp ,@cl_net_svps );
+
+         net_reqroomsinfo;
+      end;
+
       if(net_LastinIP  <>cl_net_svip)
       or(net_LastinPort<>cl_net_svp )then continue;
-
-      mid:=net_readbyte;
 
       net_packets_in+=1;
       net_packetsid_in[mid]+=1;
