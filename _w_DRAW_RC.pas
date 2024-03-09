@@ -1,4 +1,4 @@
-procedure rc_walls;
+procedure rc_DrawWalls;
 //const
 //rc_doors = mgr_cdoors+[mgr_bdoor,mgr_odoor];
 var cx,
@@ -21,15 +21,15 @@ side,lh,texx,texy,
 ds,de,
 d2,iy2   : longint;
 cc,fc    : cardinal;
-ptextl   : pTTextureLine;
-ptextw   : PTRCWall;
+ptextl   : pTRCTextureLine;
+ptextw   : PTRCImage;
 ppix,
 cpix     : pcardinal;
 begin
    FillChar(rc_vgrid ,SizeOf(rc_vgrid) ,false);
 
-   cc:=_room^.r_ceilc .c;
-   fc:=_room^.r_floorc.c;
+   cc:=sv_clroom^.r_ceil_color .c;
+   fc:=sv_clroom^.r_floor_color.c;
 
    rpx:=rc_x;
    rpy:=rc_y;
@@ -42,7 +42,7 @@ begin
 
    if(0<mx0)and(mx0<=map_mw)
   and(0<my0)and(my0<=map_mw)
-  then swtex:=_room^.rgrid[mx0,my0]
+  then swtex:=sv_clroom^.rgrid[mx0,my0]
   else swtex:=mgr_wih;
 
    rc_plx:=-rc_vy*cam_fov;
@@ -88,7 +88,7 @@ begin
          if(0<mx)and(mx<=map_mw)
         and(0<my)and(my<=map_mw)then
          begin
-            wtex:=_room^.rgrid[mx,my];
+            wtex:=sv_clroom^.rgrid[mx,my];
             rc_vgrid[mx,my]:=true;
          end
          else wtex:=mgr_wih;
@@ -112,15 +112,15 @@ begin
          if(wtex<>mgr_wih)then
          begin
             {if(pwtex in rc_doors)
-            then ptextw:=@spr_wdt[side]
+            then ptextw:=@spr_rcwall_doortrack[side]
             else
               if(wtex in rc_doors)
-              then ptextw:=@spr_wd0[side]
-              else ptextw:=@spr_wt [side,wtex]; }
+              then ptextw:=@spr_rcwall_door[side]
+              else ptextw:=@spr_rcwall [side,wtex]; }
 
             if(pwtex=mgr_door)
-            then ptextw:=@spr_wdt[side]
-            else ptextw:=@spr_wt [side,wtex];
+            then ptextw:=@spr_rcwall_doortrack[side]
+            else ptextw:=@spr_rcwall          [side,wtex];
 
             wx:=vid_rh/pWD;
 
@@ -135,14 +135,14 @@ begin
             then wX:=rPX+pWD*rdx
             else wX:=rPY+pWD*rdy;
 
-            texX:=trunc(wx*ptextw^.rcw) mod ptextw^.rcw;
+            texX:=trunc(wx*ptextw^.rc_w) mod ptextw^.rc_w;
 
             if((side=1)and(rdy>0))
-            or((side=0)and(rdx<0))then texx:=ptextw^.rcw-texx-1;
+            or((side=0)and(rdx<0))then texx:=ptextw^.rc_w-texx-1;
 
-            d2:=trunc(ptextw^.rch/lh*rc_intI);
+            d2:=trunc(ptextw^.rc_h/lh*rc_intI);
 
-            ptextl:=@ptextw^.texture[texx];
+            ptextl:=@ptextw^.rctexture[texx];
 
             if(ds<0)then
             begin
@@ -162,7 +162,7 @@ begin
             while iy<=de do
             begin
                //texy:=iy2 shr rc_intS;
-               //if(texy<rc_tex_iw)then
+               //if(texy<rc_TextureWall_iw)then
                cpix^:=ptextl^[iy2 shr rc_intS];
                cpix +=vid_rw;
                iy   +=1;
@@ -212,14 +212,14 @@ begin
    end;
 end;  }
 
-procedure rc_spr1(sprx,spry,sprz:single;spr:PTSprite;Alx:boolean);
+procedure rc_spr1(sprx,spry,sprz,scale:single;spr:pTRCImage;Alx:boolean);
 var sx,sy,tx,ty:single;
     ssx,ssy,sw,sh,shw,dsx,dsy,dex,dey,hmove,stx,sty:integer;
     texxc,texyc,tdx,tdy,tsdy:longInt;
     col,
     tcol:cardinal;
-   ptexl:PTSpriteLine;
-   pstex:PTSpriteTexure;
+   ptexl:pTRCTextureLine;
+   pstex:pTRCTexture;
    zbfs :psingle;
    ppix,
    cpix :pcardinal;
@@ -227,17 +227,17 @@ begin
    sx := sprx-rc_x;
    sy := spry-rc_y;
 
-   tY := rc_iD*(rc_plx*sY-rc_ply*sX);
+   ty := rc_iD*(rc_plx*sY-rc_ply*sX);
 
-   if(0.01<=tY)and(tY<ZBufferMDW)then
+   if(0.01<=ty)and(ty<ZBufferMDW)then
    begin
-      tX  := rc_iD*(rc_vy*sX-rc_vx*sY);
+      tx  := rc_iD*(rc_vy*sX-rc_vx*sY);
 
-      ssx := trunc(vid_rhw*(1+tX/tY));
-      ssy := vid_rhh-trunc(vid_rh/ty*(sprz+spr^.sm-cam_z));
+      ssx := trunc(vid_rhw*(1+tx/ty));
+      ssy := vid_rhh-trunc(vid_rh/ty*(sprz+spr^.rc_z-cam_z)*scale);
 
-      sw  := trunc(spr^.w/ty*vid_scx);if(sw<2)then sw:=2;
-      sh  := trunc(spr^.h/ty*vid_scy);if(sh<2)then sh:=2;
+      sw  := trunc((spr^.rc_w/ty*vid_scx)*scale);if(sw<2)then sw:=2;
+      sh  := trunc((spr^.rc_h/ty*vid_scy)*scale);if(sh<2)then sh:=2;
 
       shw := sw shr 1;
 
@@ -251,8 +251,8 @@ begin
          dSY := sSY-sH;    if(dSY < 0     )then dSY := 0;
          dEY := sSY-1;     if(dEY > vid_ih)then dEY := vid_ih;
 
-         texxc:=trunc(spr^.w/sW*rc_intI);
-         texyc:=trunc(spr^.h/sh*rc_intI);
+         texxc:=trunc(spr^.rc_w/sW*rc_intI);
+         texyc:=trunc(spr^.rc_h/sh*rc_intI);
 
          hmove:=ssx-shw;
          if(hmove<0)
@@ -262,7 +262,7 @@ begin
          if (alx) then
          begin
             texxc:=-texxc;
-            tdx  :=(spr^.w*rc_intI)-tdx-1;
+            tdx  :=(spr^.rc_w*rc_intI)-tdx-1;
          end;
 
          hmove:=ssy-sh;
@@ -273,8 +273,8 @@ begin
          cpix:=pcardinal(rc_buffer);
          cpix+=(dSY*vid_rw)+dSX;
 
-         tcol :=spr^.pf;
-         pstex:=@spr^.p;
+         tcol :=spr^.trunsColor;
+         pstex:=@spr^.rctexture;
 
          zbfs:=psingle(ZBuffer);
          zbfs+=dSX;
@@ -289,8 +289,7 @@ begin
               for sty:=dSY to dEY do
               begin
                  col :=ptexl^[tdy shr rc_intS];
-                 if(col<>tcol)then
-                 cpix^:=col;
+                 if(col<>tcol)then cpix^:=col;
                  tdy +=texyc;
                  cpix+=vid_rw;
               end;
@@ -545,52 +544,66 @@ begin
 end;    }
 
 
-procedure rc_spr_add(sx,sy,sz:single;spr:PTSprite;al:boolean);
-var mx,my:integer;
+procedure rc_spr_add(ax,ay,az,aminD,ascale:single;spr:pTRCImage;aflipX:boolean);
+var mx,
+    my:integer;
+    md:single;
 begin
-   if(map_vsprs>=MaxVisSprites)then exit;
+   if(map_rc_sprite_n>=rc_MaxVisSprites)then exit;
 
-   mx:=trunc(sx);
-   my:=trunc(sy);
+   mx:=trunc(ax);
+   my:=trunc(ay);
    if(mx<0)or(map_mlw<mx)
    or(my<0)or(map_mlw<my)
    then exit
    else
-     if(rc_vgrid[mx,my]=false)then exit;
+     if(not rc_vgrid[mx,my])then exit;
 
-   map_vsprs+=1;
-   with map_vspr[map_vsprs]^ do
+   md:=point_dist(ax,ay,rc_x,rc_y);
+   if(md<aminD)then exit;
+
+   map_rc_sprite_n+=1;
+   setlength(map_rc_sprite_l,map_rc_sprite_n);
+   new(map_rc_sprite_l[map_rc_sprite_n-1]);
+
+   with map_rc_sprite_l[map_rc_sprite_n-1]^ do
    begin
-      x :=sx;
-      y :=sy;
-      z :=sz;
-      v :=-1;
-      a :=al;
-      s :=spr;
-      d :=dist_r(x,y,rc_x,rc_y);
+      bs_x      :=ax;
+      bs_y      :=ay;
+      bs_z      :=az;
+      bs_v      :=-1;
+      bs_scale  :=ascale;
+      bs_flipx  :=aflipX;
+      bs_rcimage:=spr;
+      bs_d      :=md
    end;
 end;
 
 
-procedure rc_spr;
+procedure rc_DrawSprites;
 var i,j,da:word;
     dum   :PTBufSpr;
     an,
     xa    :boolean;
 begin
-   map_vsprs:=0;
+   while(map_rc_sprite_n>0)do
+   begin
+      map_rc_sprite_n-=1;
+      dispose(map_rc_sprite_l[map_rc_sprite_n]);
+   end;
 
-   with _room^ do
+   with sv_clroom^ do
    begin
       for i:=0 to MaxPlayers do
-       with _players[i] do
+       with g_players[i] do
        if(state>ps_dead)and(i<>cam_pl)then
        begin
           an:=((dspx<>vx)or(dspy<>vy))and(time_scorepause<=0);
+
           dspx:=vx;
           dspy:=vy;
 
-          da:=((trunc(p_dir(rc_x,rc_y,x,y)-d360(dir))+428) mod 360) div 45;
+          da:=((trunc(point_dir(rc_x,rc_y,x,y)-dir_360(dir))+428) mod 360) div 45;
 
           xa:=da in [0,6,7];
 
@@ -606,77 +619,103 @@ begin
           7:j:=2;
           end;
 
-          if(an)
-          then da:=((animation_tick+i) div 7) mod 4
-          else da:=0;
+          if(tesla_eff>0)
+          then rc_spr_add(vx,vy,0,0,1,@spr_rcelectro[j],xa)
+          else
+          begin
+             if(an)
+             then da:=((animation_tick+i) div 7) mod 4
+             else da:=0;
 
-          if(gun_rld<=gun_sanim[gun_curr])
-          then da:=(j*4)+da
-          else da:=j+20;
+             if(gun_rld<=gun_sanim[gun_curr])
+             then da:=(j*4)+da
+             else da:=j+20;
 
-          rc_spr_add(vx,vy,0,@spr_ps[team,da],xa);
+             rc_spr_add(vx,vy,0,0,1,@spr_rcteam[team,da],xa);
+          end;
        end;
 
-      if(RoomFlag(_room,sv_g_instagib)=false)then
-       for i:=1 to r_itemn do
-        with r_items[i-1] do
+      if(not Room_CheckFlag(sv_clroom,sv_g_instagib))then
+       for i:=1 to r_item_n do
+        with r_item_l[i-1] do
          if(itype<>#0)and(irespt=0)then
-          rc_spr_add(ix,iy,0,@spr_it[itype],false);
+          rc_spr_add(ix,iy,0,0,1,@spr_rcitem[isprite],false);
 
-      for i:=1 to r_decorn do
-       with r_decors[i-1] do
-        if(t<>#0)then
-         rc_spr_add(dx,dy,0,@spr_dt[t],false);
+      for i:=1 to r_decor_n do
+       with r_decor_l[i-1] do
+        if(decor_type<>#0)then
+         rc_spr_add(decor_x,decor_y,0,0,1,@spr_rcdecor[decor_type],false);
+
+      if(r_missile_n>0)then
+       for i:=0 to r_missile_n-1 do
+        with r_missile_l[i] do
+         if(mtype>0)then
+          case mtype of
+          gpt_fire  : rc_spr_add(mx,my,0,0.5,1,@spr_rcflame [(animation_tick div 4) mod 3],false);
+          gpt_rocket: begin
+                      if(mdir>-1)then
+                      rc_spr_add(mx,my,0,0.5,1,@spr_rcrocket[((trunc(point_dir(rc_x,rc_y,mx,my)-dir_360(mdir))+383) mod 360) div 45],false);
+
+                      j:=(animation_tick div 3) mod 255;
+                      if(j<>mtrail)then
+                      begin
+                         mtrail:=j;
+                         cl_eff_add(mx,my,0,1,eid_trail);
+                      end;
+                      end;
+          end;
    end;
 
-   for i:=0 to MaxVisSprites do
+   for i:=0 to rc_MaxEffects do
     with map_effs[i] do
-     if(a>0)then
+     if(eff_anim>0)then
      begin
-        a-=1;
-        ez:=ez+ezs;
-        rc_spr_add(ex,ey,ez,@spr_ef[t,a div eff_ans],false);
+        eff_anim-=1;
+        eff_z:=eff_z+eff_ez_fallspd;
+        rc_spr_add(eff_x,eff_y,eff_z,0,eff_scale,@spr_rceffect[eff_type,eff_anim div eff_ans],false);
      end;
    if(player_maxcorpses>=0)then
     for i:=0 to player_maxcorpses do
      with map_deads[i] do
-     if(a>0)then
+     if(eff_anim>0)then
      begin
-        if(a<eff_dant)then a+=1;
-        rc_spr_add(ex,ey,0,@spr_ps[t,25+(a div eff_dans)],false);
+        if(eff_anim<eff_dant)then eff_anim+=1;
+        if(eff_type<=MaxTeamsI)
+        then rc_spr_add(eff_x,eff_y,0,0,1,@spr_rcteam[eff_type,25+(eff_anim div eff_dans)],false)
+        else rc_spr_add(eff_x,eff_y,0,0,1,@spr_rcmeat[eff_anim div eff_dans]              ,false);
      end;
 
-   if(map_vsprs>0)then
+   if(map_rc_sprite_n>0)then
    begin
-      if(map_vsprs>1)then
-       for i:=1 to map_vsprs do
-        for j:=1 to (map_vsprs-i) do
-         if(map_vspr[j]^.d<map_vspr[j+1]^.d)then
+      if(map_rc_sprite_n>1)then
+       for i:=0 to map_rc_sprite_n-2 do
+        for j:=0 to (map_rc_sprite_n-i-2) do
+         if(map_rc_sprite_l[j]^.bs_d<map_rc_sprite_l[j+1]^.bs_d)then
          begin
-            dum:=map_vspr[j];
-            map_vspr[j  ]:=map_vspr[j+1];
-            map_vspr[j+1]:=dum;
+            dum:=map_rc_sprite_l[j];
+            map_rc_sprite_l[j  ]:=map_rc_sprite_l[j+1];
+            map_rc_sprite_l[j+1]:=dum;
          end;
 
-      for i:=1 to map_vsprs do
-       with map_vspr[i]^ do
-        if(d>0)then
-         rc_spr1(x,y,z,s,a);
+      for i:=0 to map_rc_sprite_n-1 do
+        with map_rc_sprite_l[i]^ do
+          if(bs_d>0)then
+            rc_spr1(bs_x,bs_y,bs_z,bs_scale,bs_rcimage,bs_flipx);
    end;
 
-   //rc_wall(7,7,8,7,@spr_wt[0,'A']);
+   //rc_wall(7,7,8,7,@spr_rcwall[0,'A']);
 end;
 
 procedure draw_rc;
 begin
-   rc_walls;
+   rc_DrawWalls;
 
-   rc_spr;
+   rc_DrawSprites;
 
-   SDL_UpdateTexture(_rctexture,nil,rc_buffer,rc_pitch);
-   _rect^.x:=hud_gbrc_x;
-   _rect^.y:=hud_gbrc_y;
-   _rect^.w:=hud_gbrc_w;
-   _rect^.h:=hud_gbrc_h;
-   SDL_RenderCopy(_renderer,_rctexture,nil,_rect);
+   SDL_UpdateTexture(vid_rctexture,nil,rc_buffer,rc_pitch);
+   vid_rect^.x:=hud_gbrc_x;
+   vid_rect^.y:=hud_gbrc_y;
+   vid_rect^.w:=hud_gbrc_w;
+   vid_rect^.h:=hud_gbrc_h;
+   SDL_RenderCopy(vid_renderer,vid_rctexture,nil,vid_rect);
 end;

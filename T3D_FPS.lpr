@@ -5,7 +5,7 @@ program T3D_FPS;
 
 {$IFDEF FULLGAME}
   {$APPTYPE CONSOLE}
-  {$APPTYPE GUI}
+  //{$APPTYPE GUI}
 {$ELSE}
   {$APPTYPE CONSOLE}
 {$ENDif}
@@ -35,6 +35,7 @@ uses SysUtils, crt, sdl2, sdl2_net
         {$INCLUDE _w_NETWORK_sv.pas}
 {$ENDIF}
 {$IFDEF FULLGAME}
+        {$INCLUDE _w_EDITOR.pas}
         {$INCLUDE _w_DRAW.pas}
         {$INCLUDE _w_GRAPHIC.pas}
         {$INCLUDE _w_MENU.pas}
@@ -47,12 +48,12 @@ uses SysUtils, crt, sdl2, sdl2_net
 begin
    G_Init;
 
-   while(_MC)do
+   while(sys_cycle)do
    begin
       fr_FPSSecondD:=SDL_GetTicks;
       {$IFDEF FULLGAME}
       G_Input;
-      G_Game;
+      G_ClientGame;
       G_Draw;
       {$ELSE}
       net_servercode_rcv;
@@ -67,7 +68,7 @@ begin
 
    {$IFDEF FULLGAME}
    if(cl_net_cstat>cstate_none)
-   then net_disconnect;
+   then net_Disconnect;
    cfg_save;
    {$ENDIF}
 end.

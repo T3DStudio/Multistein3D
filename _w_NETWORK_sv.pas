@@ -13,7 +13,7 @@ begin
    net_writecard(pingms);
    net_writebyte(sv_maxrooms);
    if(sv_maxrooms>0)then
-    for r:=0 to sv_maxrooms-1 do gdataw_roominfo(@_rooms[r],nil);
+    for r:=0 to sv_maxrooms-1 do gdataw_roominfo(@sv_rooms[r],nil);
    net_send(net_lastinip,net_lastinport);
 end;
 
@@ -26,9 +26,9 @@ begin
    net_writebyte(nmid_sv_mappart);
    net_writebyte(p);
 
-   with _players[pid] do
+   with g_players[pid] do
    with room^ do
-   with _maps[mapi] do
+   with g_maps[map_cur] do
    begin
       if(p=0)then net_writestring(mname);
 
@@ -46,17 +46,17 @@ begin
 end;
 
 procedure net_servercode_snd;
-var  r,p,clnum:byte;
+var  r,p,clnum,i:byte;
   bufposcl,
   bufpos:integer;
    aroom:PTRoom;
 begin
    for p:=0 to MaxPlayers do
-    with _players[p] do
+    with g_players[p] do
      if(state>ps_none)and(bot=false)and(pause_ping=0)then
      begin
         if(ping_t>0)and(ping_r=false)then ping+=sdl_GetTicks-ping_t;
-        pause_ping:=fr_2fps;
+        pause_ping:=fr_fpsx2;
         ping_r:=false;
         ping_t:=sdl_GetTicks;
         net_clearbuffer;
@@ -68,7 +68,7 @@ begin
    if(sv_maxrooms>0)then
    for r:=0 to sv_maxrooms-1 do
    begin
-      aroom:=@_rooms[r];
+      aroom:=@sv_rooms[r];
       with aroom^ do
       begin
          if(cur_clients<=bot_cur)then continue;
@@ -77,27 +77,27 @@ begin
          net_writebyte(nmid_sv_snapshot);
          net_writebyte(time_min        );
          net_writebyte(time_sec        );
-         _wudata_timer(time_scorepause,nil);
-         if(_wudata_timer(vote_time,nil)>0)then
+         wudata_timer(time_scorepause,nil);
+         if(wudata_timer(vote_time,nil)>0)then
          begin
             net_writestring(vote_cmd);
             net_writestring(vote_arg);
          end;
 
-         bufposcl:=net_bufpos;
+         bufposcl:=net_buffer_pos;
          net_writebyte(0);
       end;
 
       clnum:=0;
       for p:=1 to MaxPlayers do
-       with _players[p] do
+       with g_players[p] do
         if(room=aroom)and(state>ps_none)and(clnum<255)then clnum+=1;
 
       net_writebyte(clnum);
 
       if(clnum>0)then
        for p:=1 to MaxPlayers do
-        with _players[p] do
+        with g_players[p] do
          if(room=aroom)and(state>ps_none)then
          begin
             net_writebyte(p);
@@ -113,27 +113,28 @@ begin
             if(clnum=0)then break;
          end;
 
-      bufpos:=net_bufpos;
+      bufpos:=net_buffer_pos;
 
       for p:=1 to MaxPlayers do
-       with _players[p] do
-        if(state>ps_none)and(room=aroom)and(bot=false)and(ttl<fr_fps)and(pause_snap=0)then
+       with g_players[p] do
+        if(state>ps_none)and(room=aroom)and(bot=false)and(ttl<fr_fpsx1)and(pause_snap=0)then
         begin
-           net_bufpos:=bufposcl;
+           net_buffer_pos:=bufposcl;
            net_writebyte(p);
-           net_bufpos:=bufpos;
+           net_buffer_pos:=bufpos;
 
            if(state>ps_dead)then
            begin
               net_writebyte(i2b(armor  ,Player_max_armor  ));
-              net_writebyte(i2b(ammo[1],Player_max_ammo[1]));
-              net_writebyte(i2b(ammo[2],Player_max_ammo[2]));
+              for i:=1 to AmmoTypesN do
+              net_writebyte(i2b(ammo[i],Player_max_ammo[i]));
               net_writebyte(gun_inv);
            end;
 
-           gdataw_pdata    (aroom,@pdata_player,nil);
-           gdataw_roomlog  (aroom,@log_n,@pause_logsend,(ping div fr_RateTicksI)+5,nil);
-           gdataw_roomitems(aroom,@mdata_item,nil);
+           gdataw_pdata       (aroom,@pdata_player,nil);
+           gdataw_RoomLog     (aroom,@log_n,@pause_logsend,(ping div fr_RateTicksI)+5,nil);
+           gdataw_RoomItems   (aroom,@mdata_item,nil);
+           gdataw_RoomMissiles(aproom,pf);
 
            net_send(ip,port);
 
@@ -142,25 +143,25 @@ begin
    end;
 
    if(net_advertise)then
-     if(net_advertise_Timer<=0)then
+     if(net_advertise_timer<=0)then
      begin
-        net_advertise_Timer:=net_advertise_Period;
+        net_advertise_timer:=net_advertise_Period;
         net_clearbuffer;
         net_writebyte(nmid_sv_advertise);
         net_send(net_advertise_ip,net_advertise_port);
      end
-     else net_advertise_Timer-=1;
+     else net_advertise_timer-=1;
 end;
 
 
 procedure net_p_connected(pid:byte);
 begin
-   with _players[pid] do
+   with g_players[pid] do
    begin
       net_clearbuffer;
       net_writebyte(nmid_sv_connected);
       gdataw_roominfo(room,nil);
-      _wudata_word(log_n,nil);
+      wudata_word(log_n,nil);
       net_send(ip,port);
    end;
 end;
@@ -182,7 +183,7 @@ var aid,ateam:byte;
   ax,ay,ad:single;
   lgn:word;
 begin
-   with _players[pid] do
+   with g_players[pid] do
    begin
       lgn:=net_readword;
       if(lgn>=log_n)or(log_n>room^.log_n)
@@ -208,10 +209,10 @@ begin
          ad:=net_readsingle;
          ax:=net_readsingle;
          ay:=net_readsingle;
-         player_CheckNewPos(@_players[pid],ax,ay,ad);
+         player_CheckNewPos(@g_players[pid],ax,ay,ad);
       end;
 
-      G_SvDoClientAction(@_players[pid],aid);
+      G_SvDoClientAction(@g_players[pid],aid);
    end;
 end;
 
@@ -221,9 +222,9 @@ var b:word;
 begin
    net_check_bans:=0;
 
-   if(_bann>0)then
-    for b:=0 to _bann-1 do
-     with _bans[b] do
+   if(sv_bann>0)then
+    for b:=0 to sv_bann-1 do
+     with sv_bans[b] do
       if(ban_ip=ip)then
        if(ban_time>0)or(skip_time)then
        begin
@@ -234,15 +235,15 @@ end;
 procedure net_add_ban(ip,time:cardinal;comment:shortstring);
 var b:word;
 begin
-   if(_bann=65535)then exit;
+   if(sv_bann=65535)then exit;
    b:=net_check_bans(ip,true);
    if(b=0)then
    begin
-      _bann+=1;
-      setlength(_bans,_bann);
-      b:=_bann;
+      sv_bann+=1;
+      setlength(sv_bans,sv_bann);
+      b:=sv_bann;
    end;
-   with _bans[b-1] do
+   with sv_bans[b-1] do
    begin
       ban_ip     :=ip;
       ban_time   :=time;
@@ -251,8 +252,8 @@ begin
 end;
 procedure net_del_ban(b:word);
 begin
-   if(b<_bann)then
-    with _bans[b] do ban_time:=0;
+   if(b<sv_bann)then
+    with sv_bans[b] do ban_time:=0;
 end;
 procedure net_send_bans(ip:cardinal;port:word);
 var b,bn:word;
@@ -262,11 +263,11 @@ begin
    bn:=0;
    net_clearbuffer;
    net_writebyte(nmid_sv_banlist);
-   bufpos0:=net_bufpos;
+   bufpos0:=net_buffer_pos;
    net_writeword(0);
-   if(_bann>0)then
-    for b:=0 to _bann-1 do
-     with _bans[b] do
+   if(sv_bann>0)then
+    for b:=0 to sv_bann-1 do
+     with sv_bans[b] do
       if(ban_time>0)then
       begin
          bn+=1;
@@ -274,10 +275,10 @@ begin
          net_writecard(ban_ip);
          net_writestring(ban_comment);
       end;
-   bufpos1:=net_bufpos;
-   net_bufpos:=bufpos0;
+   bufpos1:=net_buffer_pos;
+   net_buffer_pos:=bufpos0;
    net_writeword(bn);
-   net_bufpos:=bufpos1;
+   net_buffer_pos:=bufpos1;
    net_send(ip,port);
 end;
 procedure net_send_maplist(room:PTRoom;ip:cardinal;port:word);
@@ -287,13 +288,13 @@ begin
    net_writebyte(nmid_sv_maplist);
    with room^ do
    begin
-      net_writeword(maplistn);
-      for m:=0 to maplistn-1 do
+      net_writeword(maplist_n);
+      for m:=0 to maplist_n-1 do
       begin
-         i:=maplist[m];
-         if(i>=_mapn)
+         i:=maplist_l[m];
+         if(i>=g_mapn)
          then net_writestring('???')
-         else net_writestring(_maps[i].mname);
+         else net_writestring(g_maps[i].mname);
       end;
    end;
    net_send(ip,port);
@@ -330,7 +331,7 @@ begin
       exit;
    end;
    rconp:=net_readstring;
-   pid:=net_NewPlayer(net_lastinip,net_lastinport,rid,pname,0,false,rconp=rcon_pass);
+   pid:=net_NewPlayer(net_lastinip,net_lastinport,rid,pname,0,false,rconp=sv_rcon_pass);
    if(pid=0)then
    begin
       net_clearbuffer;
@@ -347,9 +348,9 @@ var vr,
     pid:byte;
     pt:cardinal;
 begin
-   if(_bann>0)then
-    for pt:=0 to _bann-1 do
-     with _bans[pt] do
+   if(sv_bann>0)then
+    for pt:=0 to sv_bann-1 do
+     with sv_bans[pt] do
       if(0<ban_time)and(ban_time<ban_forever)then ban_time-=1;
 
    net_clearbuffer;
@@ -381,20 +382,20 @@ nmid_roomsinfo : begin
 nmid_cl_connect    : if(pid>0)
                      then net_p_connected(pid)
                      else net_p_new;
-nmid_cl_disconnect : if(pid>0)then pl_state(@_players[pid],ps_none,true);
+nmid_cl_disconnect : if(pid>0)then pl_state(@g_players[pid],ps_none,true);
 nmid_cl_chat       : if(pid=0)
                      then net_p_notconnected(net_lastinip,net_lastinport)
                      else
-                      with _players[pid] do
+                      with g_players[pid] do
                        if(pause_chat=0)or(rcon_access)then
                        begin
                           pause_chat:=0;//room^.time_pause_chat;
-                          _log_add(room,log_chat,name+': '+net_readchatmsg);
+                          room_log_add(room,log_chat,name+': '+net_readchatmsg);
                        end
-                       else pause_chat+=fr_fps;
-nmid_cl_cmd        : if(pid=0)
+                       else pause_chat+=fr_fpsx1;
+nmid_cl_command    : if(pid=0)
                      then net_p_notconnected(net_lastinip,net_lastinport)
-                     else GameParseCmd(net_readstring,pid);
+                     else GameParseCommand(net_readstring,pid);
 nmid_cl_maprequest : if(pid=0)
                      then net_p_notconnected(net_lastinip,net_lastinport)
                      else
@@ -405,7 +406,7 @@ nmid_cl_maprequest : if(pid=0)
 nmid_cl_ping       : if(pid=0)
                      then net_p_notconnected(net_lastinip,net_lastinport)
                      else
-                      with _players[pid] do
+                      with g_players[pid] do
                       begin
                          pt:=net_readcard;
                          if(pt=ping_t)then
@@ -417,7 +418,7 @@ nmid_cl_ping       : if(pid=0)
 nmid_sv_ping       : if(pid=0)
                      then net_p_notconnected(net_lastinip,net_lastinport)
                      else
-                      with _players[pid] do
+                      with g_players[pid] do
                       begin
                          pt:=net_readcard;
                          net_clearbuffer;

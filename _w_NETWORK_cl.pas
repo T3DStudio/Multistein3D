@@ -1,6 +1,6 @@
 
 
-procedure net_reqroomsinfo;
+procedure net_RequestRoomsInfo;
 begin
    sv_ping_str:='--';
    sv_ping    :=sdl_GetTicks;
@@ -12,7 +12,7 @@ begin
    net_send(cl_net_svip,cl_net_svp);
 end;
 
-procedure net_disconnect;
+procedure net_Disconnect;
 begin
    net_clearbuffer;
    net_writebyte(nmid_cl_disconnect);
@@ -23,22 +23,22 @@ begin
    menu_update :=true;
 end;
 
-procedure net_StartConnect(ri:integer);
+procedure net_StartConnect(roomi:byte);
 begin
-   if(cl_net_cstat>cstate_none)then net_disconnect;
+   if(cl_net_cstat>cstate_none)then net_Disconnect;
    net_period    := 0;
-   cl_net_roomi  := ri;
+   cl_net_roomi  := roomi;
    cl_net_cstat  := cstate_init;
    cl_net_mpartn := 0;
    cl_net_stat   := str_connecting;
    menu_update   := true;
    menu_locmatch := false;
    ResetLocalGame;
-   demo_break(_room,'');
-   _room^.demo_cstate:=ds_none;
+   demo_break(sv_clroom,'');
+   sv_clroom^.demo_cstate:=ds_none;
 end;
 
-procedure net_sendchat(str:shortstring);
+procedure net_SendChat(str:shortstring);
 begin
    if(cl_net_cstat<cstate_snap)or(length(str)=0)then exit;
 
@@ -48,30 +48,33 @@ begin
    net_send(cl_net_svip,cl_net_svp);
 end;
 
-procedure net_sendcmd(str:shortstring);
+procedure net_SendCommand(str:shortstring);
 begin
    if(cl_net_cstat<cstate_snap)or(length(str)=0)then exit;
 
    net_clearbuffer;
-   net_writebyte(nmid_cl_cmd);
+   net_writebyte(nmid_cl_command);
    net_writestring(str);
    net_send(cl_net_svip,cl_net_svp);
 end;
 
 procedure net_ReadSnapShot;
-var pn,pi,pl,nstate,pg,
-    st  :byte;
-    _pi :PTPlayer;
+var
+pn,pi,
+pl,pg,
+nstate,
+    st : byte;
+   _pi : PTPlayer;
 begin
-   with _room^ do
+   with sv_clroom^ do
    begin
       cur_clients    :=0;
       cur_players    :=0;
       time_min       :=net_readbyte;
       time_sec       :=net_readbyte;
-      time_tick      :=(time_min*TicksPerMinute)+(time_sec*fr_fps);
-      time_scorepause:=_rudata_timer(nil);
-      vote_time      :=_rudata_timer(nil);
+      time_tick      :=(time_min*TicksPerMinute)+(time_sec*fr_fpsx1);
+      time_scorepause:=rudata_timer(nil);
+      vote_time      :=rudata_timer(nil);
       if(vote_time>0)then
       begin
          vote_cmd:=net_readstring;
@@ -98,7 +101,7 @@ begin
    begin
       pi:=net_readbyte;
       if(pi=0)or(MaxPlayers<pi)then exit;
-      _pi:=@_players[pi];
+      _pi:=@g_players[pi];
 
       while(pl<pi)do
       begin
@@ -110,11 +113,18 @@ begin
       with _pi^ do
       begin
          roomi :=0;
-         room  :=_room;
+         room  :=sv_clroom;
          pnum  :=pi;
 
          st    :=net_readbyte;
          nstate:=st and %00000111;
+         if(nstate<>ps_gibs)
+         then gids_death:=false
+         else
+         begin
+            gids_death:=true;
+            nstate:=ps_dead;
+         end;
 
          if(nstate>=ps_dead)then team:=(st and %00011000) shr 3;
          if(nstate> ps_dead)then
@@ -130,7 +140,7 @@ begin
             if(pi=cl_playeri)then
             begin
                if(player_antilag)and(gun_curr<>pg)then gun_rld:=0;
-               if(not cl_buffer_check(x,y))and(room^.time_scorepause=0)then
+               if(not cl_buffer_xy_check(x,y))and(room^.time_scorepause=0)then
                begin
                   vx  :=x;
                   vy  :=y;
@@ -149,12 +159,11 @@ begin
 
          pl_state(_pi,nstate,false);
 
-         if(state>ps_none)then _room^.cur_clients+=1;
-         if(state>ps_spec)then _room^.cur_players+=1;
+         if(state>ps_none)then sv_clroom^.cur_clients+=1;
+         if(state>ps_spec)then sv_clroom^.cur_players+=1;
 
          armor   :=0;
-         ammo[1] :=1;
-         ammo[2] :=1;
+         for st:=1 to AmmoTypesN do ammo[st]:=1;
          gun_next:=gun_curr;
          gun_inv :=255;
       end;
@@ -169,42 +178,44 @@ begin
       pi+=1;
    end;
 
-   with _players[cl_playeri] do
+   with g_players[cl_playeri] do
    begin
       roomi:=0;
-      room :=_room;
+      room :=sv_clroom;
       pnum :=cl_playeri;
 
       if(state>ps_dead)then
       begin
-         armor  :=net_readbyte;
-         ammo[1]:=net_readbyte;
-         ammo[2]:=net_readbyte;
-         gun_inv:=net_readbyte;
+         armor   :=net_readbyte;
+         st      :=net_readbyte;
+         for st:=1 to AmmoTypesN do
+         ammo[st]:=net_readbyte;
+         gun_inv :=net_readbyte;
       end;
 
       gdatar_pdata(nil);
-      gdatar_roomlog  (_room,nil);
-      gdatar_roomitems(_room,nil);
+      gdatar_RoomLog     (sv_clroom,nil);
+      gdatar_RoomItems   (sv_clroom,nil);
+      gdatar_RoomMissiles(sv_clroom,nil);
    end;
 
    if(cam_pl>MaxPlayers)
    then cam_pl:=cl_playeri
    else
-     with _players[cam_pl] do
+     with g_players[cam_pl] do
       if(state<=ps_spec)then cam_pl:=cl_playeri;
 
-   if(RoomFlag(_room,sv_g_teams))then
-    with _room^ do
+   if(Room_CheckFlag(sv_clroom,sv_g_teams))then
+    with sv_clroom^ do
     begin
        FillChar(team_frags,SizeOf(team_frags),0);
        for pn:=0 to MaxPlayers do
-        with _players[pn] do
+        with g_players[pn] do
          if(state>ps_spec)then team_frags[team]+=frags;
     end;
 end;
 
-procedure net_maprequest;
+procedure net_MapRequest;
 begin
    net_clearbuffer;
    net_writebyte(nmid_cl_maprequest);
@@ -212,8 +223,7 @@ begin
    net_send(cl_net_svip,cl_net_svp);
 end;
 
-
-procedure net_readmappart;
+procedure net_ReadMapPart;
 var p:byte;
 i0,i1:integer;
    mi:word;
@@ -227,23 +237,23 @@ begin
    begin
       menu_update:= true;
       mname      := net_readstring;
-      mi         := mname2n(mname);
-      if(mi=65535)then mi:=AddMap(mname);
-      if(mi=65535)then
+      mi         := map_name2n(mname);
+      if(mi=mi.MaxValue)then mi:=map_new(mname);
+      if(mi=mi.MaxValue)then
       begin
-         net_disconnect;
-         _log_add(_room,log_local,'Failed to add new map to list!');
+         net_Disconnect;
+         room_log_add(sv_clroom,log_local,str_NewMapError);
          exit;
       end;
       cl_net_mapi:= mi;
    end;
-   if(cl_net_mapi>=_mapn)then exit;
+   if(cl_net_mapi>=g_mapn)then exit;
 
    cl_net_maprq_t:=0;
 
    i0:=p*NetMapPartSize+1;
    i1:=min2(i0+NetMapPartSize,MaxMapBuffer);
-   with _maps[cl_net_mapi] do
+   with g_maps[cl_net_mapi] do
     while(i0<=i1)do
     begin
        mbuff[i0]:=net_readchar;
@@ -253,14 +263,14 @@ begin
    cl_net_mpartn+=1;
    if(cl_net_mpartn>NetMapParts)then
    begin
-      map_LoadToRoomByN(_room,cl_net_mapi);
+      map_LoadToRoomByN(sv_clroom,cl_net_mapi);
       if(cl_net_mapi>0)
       then map_SaveMap(cl_net_mapi);
       menu_update:=true;
    end;
 end;
 
-procedure net_readroomsinfo;
+procedure net_ReadRoomsInfo;
 var i:byte;
 begin
    sv_name    :=net_readstring;
@@ -268,10 +278,10 @@ begin
    sv_ping    :=sdl_GetTicks-net_readcard;
    sv_ping_str:=c2s(sv_ping);
 
-   sv_roomsinfoc:=net_readbyte;
-   setlength(sv_roomsinfo,sv_roomsinfoc);
-   if(sv_roomsinfoc>0)then
-    for i:=0 to sv_roomsinfoc-1 do
+   sv_roomsinfo_n:=net_readbyte;
+   setlength(sv_roomsinfo,sv_roomsinfo_n);
+   if(sv_roomsinfo_n>0)then
+    for i:=0 to sv_roomsinfo_n-1 do
      with sv_roomsinfo[i] do
      begin
         rname        :=net_readstring;
@@ -287,44 +297,45 @@ begin
    menu_update :=true;
 end;
 
-procedure net_StopConnection(s:shortstring);
+procedure net_StopConnection(stat:shortstring);
 begin
    cl_net_cstat:=cstate_none;
-   cl_net_stat :=s;
+   cl_net_stat :=stat;
    cl_net_roomi:=255;
    menu_update :=true;
-   _log_add(_room,log_local,cl_net_stat);
+   room_log_add(sv_clroom,log_local,cl_net_stat);
    menu_switch(1);
 end;
 
 procedure net_read_bans;
-var b,bn:word;
-  ban_ip,
-  ban_comment,
-  sstr,
-  lstr
-        :shortstring;
+var
+b,bn    : word;
+ban_ip,
+ban_comment,
+sstr,
+lstr
+        : shortstring;
 begin
-   lstr:='Banlist: ';
-   bn:=net_readword;
+   lstr:=str_BanList;
+   bn  :=net_readword;
    while(bn>0)do
    begin
       b:=net_readword;
       ban_ip:=c2ip(net_readcard);
       ban_comment:=net_readstring;
       sstr:=w2s(b)+':'+ban_ip;
-      if(length(ban_comment)>0)then sstr:=sstr+':'+ban_comment;
+      if(length(ban_comment)>0)then sstr+=':'+ban_comment;
       sstr+=',';
       if((length(lstr)+length(sstr))>255)then
       begin
-         _log_add(_room,log_local,lstr);
+         room_log_add(sv_clroom,log_local,lstr);
          lstr:=sstr;
       end
       else lstr+=sstr;
       bn-=1;
    end;
    if(length(lstr)>0)
-   then _log_add(_room,log_local,lstr);
+   then room_log_add(sv_clroom,log_local,lstr);
 end;
 
 procedure net_read_maplist;
@@ -333,7 +344,7 @@ lstr,
 mapname:shortstring;
 begin
    m:=net_readword;
-   lstr:='Maplist('+w2s(m)+'): ';
+   lstr:=str_Maplist+'('+w2s(m)+'): ';
    while(m>0)do
    begin
       m-=1;
@@ -341,13 +352,13 @@ begin
       if(m>0)then mapname+=',';
       if((length(lstr)+length(mapname))>255)then
       begin
-         _log_add(_room,log_local,lstr);
+         room_log_add(sv_clroom,log_local,lstr);
          lstr:=mapname;
       end
       else lstr+=mapname;
    end;
    if(length(lstr)>0)
-   then _log_add(_room,log_local,lstr);
+   then room_log_add(sv_clroom,log_local,lstr);
 end;
 
 procedure net_clientcode;
@@ -372,7 +383,7 @@ begin
            ip_txt(@cl_net_svip,@cl_net_svips);
          port_txt(@cl_net_svp ,@cl_net_svps );
 
-         net_reqroomsinfo;
+         net_RequestRoomsInfo;
       end;
 
       if(net_LastinIP  <>cl_net_svip)
@@ -384,7 +395,7 @@ begin
       server_ttl:=0;
 
       case mid of
-nmid_roomsinfo : net_readroomsinfo;
+nmid_roomsinfo : net_ReadRoomsInfo;
       end;
 
       if(cl_net_cstat=cstate_none)then continue;
@@ -405,20 +416,20 @@ nmid_sv_ping        : begin
                          net_send(cl_net_svip,cl_net_svp);
                       end;
 nmid_cl_ping        : begin
-                        ping_t:=net_readcard;
-                        if(server_ping_t=ping_t)then
-                        begin
-                           server_ping  :=SDL_GetTicks-ping_t;
-                           server_ping_r:=true;
-                        end;
-                     end;
+                         ping_t:=net_readcard;
+                         if(server_ping_t=ping_t)then
+                         begin
+                            server_ping  :=SDL_GetTicks-ping_t;
+                            server_ping_r:=true;
+                         end;
+                      end;
 
 nmid_sv_notconnected: if(cl_net_cstat>cstate_init)then
                       net_StartConnect(cl_net_roomi);
 nmid_sv_connected   : if(cl_net_cstat=cstate_init)then
                       begin
-                         gdatar_roominfo(_room,nil);
-                         _room^.log_n :=_rudata_word(nil,_room^.log_n);
+                         gdatar_RoomInfo(sv_clroom,nil);
+                         sv_clroom^.log_n:=rudata_word(nil,sv_clroom^.log_n);
 
                          cl_net_cstat :=cstate_snap;
                          cl_net_stat  :=str_connected;
@@ -429,7 +440,7 @@ nmid_sv_connected   : if(cl_net_cstat=cstate_init)then
       if(cl_net_cstat=cstate_snap)then
        case mid of
 nmid_sv_snapshot  : net_ReadSnapShot;
-nmid_sv_mappart   : net_readmappart;
+nmid_sv_mappart   : net_ReadMapPart;
        end;
    end;
 
@@ -449,7 +460,7 @@ cstate_init  : begin
                   end;
 
                   net_period+=1;
-                  net_period:=net_period mod fr_hfps;
+                  net_period:=net_period mod fr_fpsh1;
                end;
 cstate_snap  : begin
                   if(cl_net_mpartn<=NetMapParts)then
@@ -457,15 +468,15 @@ cstate_snap  : begin
                    then cl_net_maprq_t-=1
                    else
                    begin
-                      cl_net_maprq_t:=fr_hfps;
-                      net_maprequest;
+                      cl_net_maprq_t:=fr_fpsh1;
+                      net_MapRequest;
                    end;
 
                   server_ttl+=1;
                   if(server_ping_p=0)then
                   begin
                      if(server_ping_t>0)and(server_ping_r=false)and(server_ping<10000)then server_ping+=sdl_GetTicks-server_ping_t;
-                     server_ping_p:=fr_2fps;
+                     server_ping_p:=fr_fpsx2;
                      server_ping_r:=false;
                      server_ping_t:=sdl_GetTicks;
 
@@ -478,14 +489,14 @@ cstate_snap  : begin
 
                   if(net_period=0)then
                   if(cl_playeri<=MaxPlayers)then
-                  with _players[cl_playeri] do
+                  with g_players[cl_playeri] do
                   begin
                      net_clearbuffer;
                      if(state>ps_dead)
                      then net_writebyte(nmid_cl_datap)
                      else net_writebyte(nmid_cl_datas);
 
-                     net_writeword(_room^.log_n);
+                     net_writeword(sv_clroom^.log_n);
 
                      mid:=0;
 
@@ -502,7 +513,7 @@ cstate_snap  : begin
                         net_writesingle(vdir);
                         net_writesingle(vx);
                         net_writesingle(vy);
-                        cl_buffer_add(vx,vy);
+                        cl_buffer_xy_add(vx,vy);
                      end;
                      net_send(cl_net_svip,cl_net_svp);
 

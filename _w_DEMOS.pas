@@ -1,29 +1,21 @@
 
 const
-block_word_size = 1000;
-map_word_size   = map_mlw*block_word_size; //65000
+block_word_sizeP   = 1000;
+map_word_sizeP     = map_mlw*block_word_sizeP; //65000
+block_word_sizeM   = 500;
+map_word_sizeM     = map_mlw*block_word_sizeM; //32500
 
 demo_timer1_period = 2;
-demo_timer2_period = fr_fps div demo_timer1_period;
+demo_timer2_period = fr_fpsx1 div demo_timer1_period;
 
-function sX2W(x:single):word;
-begin
-   sX2W:=mm3w(0,round(x*block_word_size),map_word_size);
-end;
-function sD2I(x:single):integer;
-begin
-   sD2I:=round(x*90);
-end;
 
-function wX2S(x:word):single;
-begin
-   wX2S:=x/block_word_size;
-end;
-function wD2S(x:integer):single;
-begin
-   wD2S:=x/90;
-end;
+function ps2w (x:single ):word   ;begin ps2w :=mm3w(0,round(x*block_word_sizeP),map_word_sizeP);end;
+function ms2w (x:single ):word   ;begin ms2w :=mm3w(0,round(x*block_word_sizeM),map_word_sizeM);end;
+function dir2i(x:single ):integer;begin dir2i:=round(x*90);end;
 
+function pw2s (x:word   ):single ;begin pw2s :=x/block_word_sizeP;end;
+function mw2s (x:word   ):single ;begin mw2s :=x/block_word_sizeM;end;
+function i2dir(x:integer):single ;begin i2dir:=x/90;end;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -34,15 +26,15 @@ procedure gdataw_roominfo(aproom:PTRoom;pf:pfile);
 begin
    with aproom^ do
    begin
-      _wudata_string(rname      ,pf);
-      _wudata_byte  (max_clients,pf);
-      _wudata_byte  (max_players,pf);
-      _wudata_card  (g_flags    ,pf);
-      _wudata_int   (g_fraglimit,pf);
-      _wudata_byte  (g_timelimit,pf);
-      _wudata_byte  (cur_clients,pf);
-      _wudata_byte  (cur_players,pf);
-      _wudata_string(mapname    ,pf);
+      wudata_string(rname      ,pf);
+      wudata_byte  (max_clients,pf);
+      wudata_byte  (max_players,pf);
+      wudata_card  (g_flags    ,pf);
+      wudata_int   (g_fraglimit,pf);
+      wudata_byte  (g_timelimit,pf);
+      wudata_byte  (cur_clients,pf);
+      wudata_byte  (cur_players,pf);
+      wudata_string(mapname    ,pf);
    end;
 end;
 
@@ -54,26 +46,27 @@ begin
    repeat
       pdata_player^+=1;
       if(pdata_player^>MaxPlayers)then pdata_player^:=0;
-      pl:=@_players[pdata_player^];
+      pl:=@g_players[pdata_player^];
       if(pl^.room=aproom)and(pl^.state>ps_none)then break;
    until (pdata_player^=pb);
-   _wudata_byte(pdata_player^,pf);
+   wudata_byte(pdata_player^,pf);
 
    with pl^ do
    begin
-      _wudata_word(ping,pf);
-      if(state>ps_spec)then _wudata_int(frags,pf);
-      _wudata_string(name,pf);
+      wudata_word(ping,pf);
+      if(state>ps_spec)then wudata_int(frags,pf);
+      wudata_string(name,pf);
    end;
 end;
 
-procedure gdataw_roomlog(aproom:PTRoom;plog_n,pause_var:pword;pause_time:word;pf:pfile);
+procedure gdataw_RoomLog(aproom:PTRoom;plog_n,pause_var:pword;pause_time:word;pf:pfile);
 var li,l,lc:word;
+    b:byte;
 begin
    if(pause_var<>nil)then
      if(pause_var^>0)then
      begin
-        _wudata_byte(0,pf);
+        wudata_byte(0,pf);
         exit;
      end;
 
@@ -88,64 +81,106 @@ begin
        then li:=MaxRoomLog
        else li-=1;
 
-      _wudata_byte(lc,pf);
+      wudata_byte(lc,pf);
       if(pf<>nil)
       then plog_n^+=lc
-      else _wudata_word(aproom^.log_n,pf);
+      else wudata_word(aproom^.log_n,pf);
       while(lc>0)do
       begin
          if(li=MaxRoomLog)
          then li:=0
          else li+=1;
          lc-=1;
-         _wudata_byte  (aproom^.log_t[li],pf);
-         _wudata_string(aproom^.log_l[li],pf);
+         with aproom^.log_l[li] do
+         begin
+            b:=data_id;
+            if(length(data_string)>0)
+            then b:=b or  %10000000
+            else b:=b and %01111111;
+            wudata_byte(b,pf);
+            if(b and %10000000)>0 then wudata_string(data_string,pf);
+         end;
       end;
 
       if(pause_var<>nil)then pause_var^:=pause_time;
    end
-   else _wudata_byte(0,pf);
+   else wudata_byte(0,pf);
 end;
 procedure gdataw_roomitems_seg(aproom:PTRoom;pmdata_item:pword;pf:pfile);
 var b,
     i:byte;
 begin
    with aproom^    do
-   if(r_itemn>0)then
+   if(r_item_n>0)then
    begin
       b:=0;
       for i:=0 to 7 do
       begin
-         pmdata_item^:=(pmdata_item^+1) mod r_itemn;
-         SetBBit(@b,i,r_items[pmdata_item^].irespt<=0);
+         pmdata_item^:=(pmdata_item^+1) mod r_item_n;
+         SetBBit(@b,i,r_item_l[pmdata_item^].irespt<=0);
       end;
-      _wudata_byte(b,pf);
+      wudata_byte(b,pf);
    end;
 end;
-procedure gdataw_roomitems(aproom:PTRoom;pmdata_item:pword;pf:pfile);
+procedure gdataw_RoomItems(aproom:PTRoom;pmdata_item:pword;pf:pfile);
 begin
    with aproom^    do
-   if(r_itemn>0)then
+   if(r_item_n>0)then
    begin
       if(pf=nil)then
       begin
-      _wudata_word(pmdata_item^,pf);
+      wudata_word(pmdata_item^,pf);
       gdataw_roomitems_seg(aproom,pmdata_item,pf);
       gdataw_roomitems_seg(aproom,pmdata_item,pf);
       gdataw_roomitems_seg(aproom,pmdata_item,pf);
       end;
       gdataw_roomitems_seg(aproom,pmdata_item,pf);
+   end;
+end;
+procedure gdataw_RoomMissiles(aproom:PTRoom;pf:pfile);
+var
+w,
+m       : word;
+m_count : byte;
+begin
+   with aproom^ do
+   begin
+      m_count:=0;
+      if(r_missile_n>0)then
+       for m:=0 to r_missile_n-1 do
+       begin
+          if(m=255)then break;
+          with r_missile_l[m] do
+            if(mtype>0)then m_count+=1;
+          if(m_count=255)then break;
+       end;
+
+      wudata_byte(m_count,pf);
+      if(m_count>0)then
+       for m:=0 to r_missile_n-1 do
+        with r_missile_l[m] do
+         if(mtype>0)then
+         begin
+            wudata_byte(m,pf);
+            w:=ms2w(mx);
+            SetWBit(@w,15,mtype=gpt_fire);
+            wudata_word(w,pf);
+            wudata_word(ms2w(my),pf);
+         end;
    end;
 end;
 function PlayerGetStateByte(p:byte):byte;
 begin
    PlayerGetStateByte:=0;
-   with _players[p] do
+   with g_players[p] do
    if(state>ps_none)then
    begin
       if(state>ps_dead)and(gun_rld>gun_reload_s[gun_curr])
       then PlayerGetStateByte:=ps_attk
-      else PlayerGetStateByte:=state;
+      else
+        if(state=ps_dead)and(gids_death)
+        then PlayerGetStateByte:=ps_gibs
+        else PlayerGetStateByte:=state;
 
       if(state>=ps_dead)then PlayerGetStateByte:=PlayerGetStateByte or ((team     and %00000011) shl 3);
       if(state> ps_dead)then PlayerGetStateByte:=PlayerGetStateByte or ((gun_curr and %00000111) shl 5);
@@ -154,57 +189,55 @@ end;
 
 procedure gdataw_gamedata(aproom:PTRoom;pf:pfile);
 var p,i:byte;
+      w:word;
 begin
    with aproom^    do
    begin
       demo_timer1:=(demo_timer1+1) mod demo_timer1_period;
       if(demo_timer1>0)then exit;
 
-      demo_timer2:=(demo_timer2+2) mod demo_timer2_period;
+      demo_timer2:=(demo_timer2+1) mod demo_timer2_period;
 
       i:=0;
       for p:=1 to MaxPlayers do
-       with _players[p] do
+       with g_players[p] do
         if(room=aproom)and(state>ps_none)and(i<255)then i+=1;
 
-      _wudata_byte(i,pf);
+      wudata_byte(i,pf);
       if(i>0)then
        for p:=1 to MaxPlayers do
-        with _players[p] do
+        with g_players[p] do
          if(room=aproom)and(state>ps_none)then
          begin
-            _wudata_byte(p,pf);
-
+            wudata_byte(p,pf);
             if(name<>demo_pnames[p])then
             begin
-               _wudata_byte(ps_data1,pf);
-               _wudata_string(name,pf);
+               wudata_byte(ps_data1,pf);
+               wudata_string(name,pf);
                demo_pnames[p]:=name;
             end
             else
               if(demo_timer2=0  )then
               begin
-                 if(state=ps_spec)then
+                 wudata_byte(ps_data2,pf);
+                 w:=ping;
+                 SetWBit(@w,15,(state>ps_spec)and(frags<>demo_pfrags[p]));
+                 wudata_word(w,pf);
+                 if(state>ps_spec)and(frags<>demo_pfrags[p])then
                  begin
-                    _wudata_byte(ps_data2,pf);
-                    _wudata_word(ping    ,pf);
-                 end
-                 else
-                 begin
-                    _wudata_byte(ps_data3,pf);
-                    _wudata_word(ping    ,pf);
-                    _wudata_int (frags   ,pf);
+                    wudata_int(frags,pf);
+                    demo_pfrags[p]:=frags;
                  end;
               end
               else
               begin
-                 _wudata_byte(PlayerGetStateByte(p),pf);
+                 wudata_byte(PlayerGetStateByte(p),pf);
                  if(state>ps_dead)then
                  begin
-                    _wudata_word(sX2W(x  ),pf);
-                    _wudata_word(sX2W(y  ),pf);
-                    _wudata_int (sD2I(dir),pf);
-                    _wudata_byte(i2b(hits,Player_max_hits),pf);
+                    wudata_word(ps2w(x  ),pf);
+                    wudata_word(ps2w(y  ),pf);
+                    wudata_int (dir2i(dir),pf);
+                    wudata_byte(i2b(hits,Player_max_hits),pf);
                  end;
             end;
 
@@ -212,8 +245,9 @@ begin
             if(i=0)then break;
          end;
 
-      gdataw_roomlog(aproom,@demo_logn,nil,0,pf);
-      gdataw_roomitems(aproom,@demo_items,pf);
+      gdataw_RoomLog     (aproom,@demo_logn,nil,0,pf);
+      gdataw_RoomItems   (aproom,@demo_items,pf);
+      gdataw_RoomMissiles(aproom,pf);
    end;
 end;
 
@@ -271,7 +305,7 @@ begin
       with demo_fpos_l[ni] do
       begin
          time_tick:=dp_time_tick;
-         time_SecMin(aproom);
+         room_TimeUpdate(aproom);
 
          time_scorepause:=dp_time_scorepause;
          demo_items:=dp_demo_items;
@@ -285,7 +319,7 @@ begin
    end;
 end;
 
-procedure demos_RemakeList;
+procedure demos_RemakeMenuList;
 var Info : TSearchRec;
        s : shortstring;
 begin
@@ -296,7 +330,7 @@ begin
    if(FindFirst(str_demofolder+'*'+str_demoext,faReadonly,info)=0)then
     repeat
        s:=info.Name;
-       if(s<>'')then
+       if(length(s)>0)then
        begin
           demos_n+=1;
           setlength(demos_l,demos_n);
@@ -309,117 +343,206 @@ begin
    FindClose(info);
 end;
 
-procedure gdatar_roominfo(aproom:PTRoom;pf:pfile);
+procedure gdatar_RoomInfo(aproom:PTRoom;pf:pfile);
 begin
    with aproom^ do
    begin
-      rname      :=_rudata_string(pf);
-      max_clients:=_rudata_byte  (pf,0);
-      max_players:=_rudata_byte  (pf,0);
-      g_flags    :=_rudata_card  (pf,0);
-      g_fraglimit:=_rudata_int   (pf,0);
-      g_timelimit:=_rudata_byte  (pf,0);
-      cur_clients:=_rudata_byte  (pf,0);
-      cur_players:=_rudata_byte  (pf,0);
-      mapname    :=_rudata_string(pf);
+      rname      :=rudata_string(pf);
+      max_clients:=rudata_byte  (pf,0);
+      max_players:=rudata_byte  (pf,0);
+      g_flags    :=rudata_card  (pf,0);
+      g_fraglimit:=rudata_int   (pf,0);
+      g_timelimit:=rudata_byte  (pf,0);
+      cur_clients:=rudata_byte  (pf,0);
+      cur_players:=rudata_byte  (pf,0);
+      mapname    :=rudata_string(pf);
    end;
 end;
 
 procedure gdatar_pdata(pf:pfile);
 var pd:byte;
 begin
-   pd:=_rudata_byte(pf,0);
+   pd:=rudata_byte(pf,0);
    if(pd<=MaxPlayers)then
-   with _players[pd] do
+   with g_players[pd] do
    begin
-      ping :=_rudata_word(pf,0);
+      ping :=rudata_word(pf,0);
       if(state>ps_spec)then
-      frags:=_rudata_int(pf,0);
-      name :=_rudata_string(pf);
+      frags:=rudata_int(pf,0);
+      name :=rudata_string(pf);
    end;
 end;
 
-procedure gdatar_roomlog(aproom:PTRoom;pf:pfile);
-var pl,pd:word;
-    logt:byte;
+procedure gdatar_RoomLog(aproom:PTRoom;pf:pfile);
+var pl,pd  : word;
+data_id    : byte;
+data_string: shortstring;
 begin
-   pl:=_rudata_byte(pf,0);
+   pl:=rudata_byte(pf,0);
    if(pl>0)then
    begin
-      if(pf=nil)then pd:=_rudata_word(pf,0);
+      if(pf=nil)then pd:=rudata_word(pf,0);
       while(pl>0)do
       begin
-         logt:=_rudata_byte(pf,0);
-         _log_add(aproom,logt,_rudata_string(pf));
+         data_id:=rudata_byte(pf,0);
+         if((data_id and %10000000)>0)
+         then data_string:=rudata_string(pf)
+         else data_string:='';
+         data_id:=data_id and %01111111;
+         room_log_add(aproom,data_id,data_string);
          pl-=1;
       end;
       if(pf=nil)then aproom^.log_n:=pd;
    end;
 end;
 
-procedure gdatar_roomitems_seg(aproom:PTRoom;pitem:pword;pf:pfile);
+procedure gdatar_RoomItems_seg(aproom:PTRoom;pitem:pword;pf:pfile);
 var b,
     i :byte;
 begin
    with aproom^ do
    begin
-      b:=_rudata_byte(pf,0);
+      b:=rudata_byte(pf,0);
       for i:=0 to 7 do
       begin
-         pitem^:=(pitem^+1) mod r_itemn;
-         r_items[pitem^].irespt:=integer(not GetBBit(@b,i));
+         pitem^:=(pitem^+1) mod r_item_n;
+         r_item_l[pitem^].irespt:=integer(not GetBBit(@b,i));
       end;
    end;
 end;
-procedure gdatar_roomitems(aproom:PTRoom;pf:pfile);
+procedure gdatar_RoomItems(aproom:PTRoom;pf:pfile);
 var item:word;
    pitem:pword;
 begin
    with aproom^ do
-   if(r_itemn>0)then
+   if(r_item_n>0)then
    begin
       if(pf=nil)then
       begin
-         item :=_rudata_word(pf,0);
+         item :=rudata_word(pf,0);
          pitem:=@item;
       end
       else pitem:=@demo_items;
 
       if(pf=nil)then
       begin
-      gdatar_roomitems_seg(aproom,pitem,pf);
-      gdatar_roomitems_seg(aproom,pitem,pf);
-      gdatar_roomitems_seg(aproom,pitem,pf);
+      gdatar_RoomItems_seg(aproom,pitem,pf);
+      gdatar_RoomItems_seg(aproom,pitem,pf);
+      gdatar_RoomItems_seg(aproom,pitem,pf);
       end;
-      gdatar_roomitems_seg(aproom,pitem,pf);
+      gdatar_RoomItems_seg(aproom,pitem,pf);
+   end;
+end;
+procedure gdatar_RoomMissiles(aproom:PTRoom;pf:pfile);
+var
+cm,pm,
+ntype,
+m_count : byte;
+nx,ny   : single;
+x       : word;
+procedure MissileExplode(am:byte);
+begin
+   with aproom^.r_missile_l[am] do
+   begin
+      if(mtype>0)
+      then eff_MissileExplode(@aproom^.r_missile_l[am]);
+      mtype:=0;
+      mdir :=-1;
+   end;
+end;
+begin
+   m_count:=rudata_byte(pf,0);
+   writeln(m_count);
+   with aproom^ do
+   begin
+      if(r_missile_n<>255)then
+      begin
+         r_missile_n:=255;
+         setlength(r_missile_l,255);
+      end;
+      pm:=0;
+      cm:=0;
+      while(m_count>0)do
+      begin
+         cm:=rudata_byte(pf,0);
+
+         if(cm=255)then
+         begin
+            demo_break(aproom,str_demo_WrongData);
+            exit;
+         end;
+
+         while(pm<cm)do
+         begin
+            MissileExplode(pm);
+            pm+=1;
+         end;
+         pm+=1;
+
+         with r_missile_l[cm] do
+         begin
+            x :=rudata_word(pf,0);
+            if(GetWBit(@x,15))
+            then ntype:=gpt_fire
+            else ntype:=gpt_rocket;
+            SetWBit(@x,15,false);
+            nx:=mw2s(x);
+            ny:=mw2s(rudata_word(pf,0));
+
+            if(mtype>0)then
+            begin
+               if(ntype<>mtype)
+               then MissileExplode(cm)
+               else mdir:=point_dir(mx,my,nx,ny);
+            end
+            else mdir:=-1;
+
+            mx   :=nx;
+            my   :=ny;
+            mtype:=ntype;
+         end;
+
+         m_count-=1;
+         cm+=1;
+      end;
+
+      while(cm<255)do
+      begin
+         MissileExplode(cm);
+         cm+=1;
+      end;
    end;
 end;
 
 procedure player_Null(pi:byte);
 begin
-   with _players[pi] do
+   with g_players[pi] do
    begin
       roomi:=0;
-      room :=_room;
+      room :=sv_clroom;
       pnum :=pi;
    end;
-   pl_state(@_players[pi],ps_none,false);
+   pl_state(@g_players[pi],ps_none,false);
 end;
 
 procedure gdatar_gamedata(aproom:PTRoom;pf:pfile);
-var pi,pl,pn,st,nstate:byte;
-    _pi:PTPlayer;
+var
+pi,pl,
+pn,st,
+nstate : byte;
+w      : word;
+_pi    : PTPlayer;
 begin
    with aproom^ do
    begin
       demo_fpos_t+=1;
-      if((demo_fpos_t mod fr_5fps)=0)
+      if((demo_fpos_t mod fr_fpsx5)=0)
       then demo_addpos(aproom);
 
       if(time_scorepause<=0)and(cur_players>0)then
       begin
          time_tick+=1;
-         time_SecMin(aproom);
+         room_TimeUpdate(aproom);
       end;
 
       cur_clients    :=0;
@@ -429,11 +552,11 @@ begin
       if(demo_timer1>0)then exit;
    end;
 
-   pn  :=_rudata_byte(pf,0);
+   pn  :=rudata_byte(pf,0);
 
    if(MaxPlayers<pn)then
    begin
-      demo_break(aproom,'wrong game data');
+      demo_break(aproom,str_demo_WrongData);
       exit;
    end;
 
@@ -441,13 +564,13 @@ begin
    pl:=1;
    while(pn>0)do
    begin
-      pi:=_rudata_byte(pf,0);
+      pi:=rudata_byte(pf,0);
       if(pi=0)or(MaxPlayers<pi)then
       begin
-         demo_break(aproom,'wrong game data');
+         demo_break(aproom,str_demo_WrongData);
          exit;
       end;
-      _pi:=@_players[pi];
+      _pi:=@g_players[pi];
 
       while(pl<pi)do
       begin
@@ -462,15 +585,23 @@ begin
          room  :=aproom;
          pnum  :=pi;
 
-         st    :=_rudata_byte(pf,0);
+         st    :=rudata_byte(pf,0);
          nstate:=st and %00000111;
+         if(nstate<>ps_gibs)
+         then gids_death:=false
+         else
+         begin
+            gids_death:=true;
+            nstate:=ps_dead;
+         end;
 
          case nstate of
-ps_data1 : name :=_rudata_string(pf);
-ps_data2 : ping :=_rudata_word(pf,9999);
-ps_data3 : begin
-           ping :=_rudata_word(pf,9999);
-           frags:=_rudata_int (pf,0);
+ps_data1 : name :=rudata_string(pf);
+ps_data2 : begin
+           w:=rudata_word(pf,0);
+           if(GetWBit(@w,15))then frags:=rudata_int (pf,0);
+           SetWBit(@w,15,false);
+           ping:=w;
            end;
          else
            if(nstate>=ps_dead)then team:=(st and %00011000) shr 3;
@@ -478,10 +609,10 @@ ps_data3 : begin
            begin
               gun_curr:=(st and %11100000) shr 5;
 
-              x   :=wX2S(_rudata_word(pf,0));
-              y   :=wX2S(_rudata_word(pf,0));
-              dir :=wD2S(_rudata_int (pf,0));
-              hits:=     _rudata_byte(pf,0);
+              x   :=pw2s(rudata_word(pf,0));
+              y   :=pw2s(rudata_word(pf,0));
+              dir :=i2dir(rudata_int (pf,0));
+              hits:=     rudata_byte(pf,0);
 
               if(state<ps_walk)then
               begin
@@ -514,8 +645,9 @@ ps_data3 : begin
       pi+=1;
    end;
 
-   gdatar_roomlog(aproom,pf);
-   gdatar_roomitems(aproom,pf);
+   gdatar_RoomLog     (aproom,pf);
+   gdatar_RoomItems   (aproom,pf);
+   gdatar_RoomMissiles(aproom,pf);
 end;
 
 {$ENDIF}
@@ -547,29 +679,36 @@ begin
    {$ELSE}
    'SR'+b2s(rnum+1)
    {$ENDIF}
-   +'_'+DateTimeStr+'_'+mapname+str_demoext;
+   +'_'+str_DateTime+'_'+mapname+str_demoext;
 end;
 
 procedure demo_break(aproom:PTRoom;error_msg:shortstring);
+var message:shortstring;
 begin
    with aproom^ do
    begin
       if(demo_file<>nil)then
       begin
-         if(length(error_msg)>0)then _log_add(aproom,log_local,'demo processing break ['+error_msg+'] ('+demo_fname+')');
-
-         close(demo_file^);
-         dispose(demo_file);
-         if(demo_fstate=ds_read )then _log_add(aproom,log_local,'demo: stop play ('+demo_fname+')');
-         if(demo_fstate=ds_write)then _log_add(aproom,log_local,'demo: stop record ('+demo_fname+')');
+         message:='';
+         case demo_fstate of
+         ds_none : message:=str_demo_Break;
+         ds_read : message:=str_demo_BreakPlay;
+         ds_write: message:=str_demo_BreakRecord;
+         end;
+         message+=' ('+demo_fname+')';
+         if(length(error_msg)>0)then message+=' ['+error_msg+']';
+         room_log_add(aproom,log_local,message);
 
          demo_fpos_n:=0;
          setlength(demo_fpos_l,demo_fpos_n);
+
+         close(demo_file^);
+         dispose(demo_file);
       end;
       demo_file  :=nil;
       demo_fname :='';
       demo_fstate:=ds_none;
-      demo_ppause:=fr_fps;
+      demo_ppause:=fr_fpsx1;
    end;
 end;
 
@@ -597,14 +736,14 @@ ds_write: begin
              begin
                 new(demo_file);
                 demo_fname:=str_demofolder+demo_make_fname(aproom);
-                _log_add(aproom,log_local,'demo: start record ('+demo_fname+')');
+                room_log_add(aproom,log_local,str_demo_StartRecord+' ('+demo_fname+')');
                 assign(demo_file^,demo_fname);
                 {$I-}
                 rewrite(demo_file^,1);
                 {$I+}
                 if(ioresult<>0)then
                 begin
-                   demo_break(aproom,'ds_write,ioresult='+w2s(ioresult));
+                   demo_break(aproom,str_demo_WriteError+w2s(ioresult));
                    exit;
                 end;
                 demo_fstate:=ds_write;
@@ -613,23 +752,24 @@ ds_write: begin
              if(demo_head)then
              begin
                 demo_logn:=log_n;
-                _wudata_byte(ver,demo_file);
+                wudata_byte(ver,demo_file);
                 gdataw_roominfo(aproom,demo_file);
-                _wudata_byte(time_min,demo_file);
-                _wudata_byte(time_sec,demo_file);
+                wudata_byte(time_min,demo_file);
+                wudata_byte(time_sec,demo_file);
                 {$I-}
-                with _maps[mapi] do
+                with g_maps[map_cur] do
                 BlockWrite(demo_file^,mbuff,SizeOf(mbuff));
                 {$I+}
                 demo_head  :=false;
                 demo_items :=0;
                 demo_timer2:=0;
                 FillChar(demo_pnames,SizeOf(demo_pnames),0);
+                FillChar(demo_pfrags,SizeOf(demo_pfrags),0);
              end;
              gdataw_gamedata(aproom,demo_file);
              if(ioresult<>0)then
              begin
-                demo_break(aproom,'ds_write,ioresult='+w2s(ioresult));
+                demo_break(aproom,str_demo_WriteError+w2s(ioresult));
                 exit;
              end;
           end;
@@ -638,11 +778,11 @@ ds_read : begin
              if(demo_file=nil)then
              begin
                 t:=str_demofolder+demo_fname;
-                _log_add(aproom,log_local,'demo: start play ('+t+')');
+                room_log_add(aproom,log_local,str_demo_StartPlay+' ('+t+')');
                 if(not FileExists(t))then
                 begin
                    demo_cstate:=ds_none;
-                   _log_add(aproom,log_local,'demo: file don`t exists ('+t+')');
+                   room_log_add(aproom,log_local,str_demo_FileNotExists+' ('+t+')');
                    exit;
                 end;
                 new(demo_file);
@@ -652,7 +792,7 @@ ds_read : begin
                 {$I+}
                 if(ioresult<>0)then
                 begin
-                   demo_break(aproom,'ds_read,ioresult='+w2s(ioresult));
+                   demo_break(aproom,str_demo_ReadError+w2s(ioresult));
                    exit;
                 end;
                 demo_size:=FileSize(demo_file^);
@@ -663,40 +803,40 @@ ds_read : begin
              end;
              if(demo_head)then
              begin
-                v:=_rudata_byte(demo_file,0);
+                v:=rudata_byte(demo_file,0);
                 if(v<>ver)then
                 begin
-                   demo_break(aproom,'wrong version');
+                   demo_break(aproom,str_demo_WrongVersion);
                    exit;
                 end;
-                gdatar_roominfo(aproom,demo_file);
-                time_min :=_rudata_byte(demo_file,0);
-                time_sec :=_rudata_byte(demo_file,0);
-                time_tick:=(time_min*TicksPerMinute)+(time_sec*fr_fps);
-                mi       := mname2n(mapname);
-                if(mi=65535)then mi:=AddMap(mapname);
-                if(mi=65535)then mi:=0;
-                with _maps[mi] do
+                gdatar_RoomInfo(aproom,demo_file);
+                time_min :=rudata_byte(demo_file,0);
+                time_sec :=rudata_byte(demo_file,0);
+                time_tick:=(time_min*TicksPerMinute)+(time_sec*fr_fpsx1);
+                mi       := map_name2n(mapname);
+                if(mi=mi.MaxValue)then mi:=map_new(mapname);
+                if(mi=mi.MaxValue)then mi:=0;
+                with g_maps[mi] do
                 begin
                 {$I-}
                 BlockRead(demo_file^,mbuff,SizeOf(mbuff));
                 {$I+}
                 mname:=mapname;
                 end;
-                map_LoadToRoomByN(_room,mi);
+                map_LoadToRoomByN(sv_clroom,mi);
                 if(mi=0)
                 then map_AddDefault
                 else map_SaveMap(mi);
-                _players[0].name:='Demo observer';
-                pl_state(@_players[0],ps_spec,false);
-                PlayerMoveToSpawn(@_players[0]);
+                g_players[0].name:=str_demo_PlayerName;
+                pl_state(@g_players[0],ps_spec,false);
+                PlayerMoveToSpawn(@g_players[0]);
                 demo_items:=0;
                 demo_head :=false;
                 demo_play_pause:=false;
-                demo_skip:=0;
+                demo_skip :=0;
                 demo_addpos(aproom);
              end;
-             if(game_mode=0)then
+             if(cl_mode=0)then
              begin
                 if(demo_skip=0)and(not demo_play_pause)then demo_skip:=1;
                 while(demo_skip>0)do
@@ -707,7 +847,7 @@ ds_read : begin
              end;
              if(eof(demo_file^)or(ioresult<>0))then
              begin
-                demo_break(aproom,'demo end');
+                demo_break(aproom,str_demo_End);
                 demo_cstate:=ds_none;
                 menu_update:=true;
              end;
@@ -719,12 +859,12 @@ end;
 {$IFDEF FULLGAME}
 procedure demos_PlayDemo(demo_name:shortstring);
 begin
-   with _room^ do
+   with sv_clroom^ do
    begin
       if(cl_net_cstat>0)
       or(menu_locmatch)then exit;
 
-      demo_break(_room,'');
+      demo_break(sv_clroom,'');
       demo_ppause:=2;
 
       demo_fname :=demo_name;

@@ -1,8 +1,8 @@
 procedure ClearScreen(color:PTColor);
 begin
    with color^ do
-   SDL_SetRenderDrawColor(_renderer,r,g,b,a);
-   SDL_RenderClear(_renderer);
+   SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);
+   SDL_RenderClear(vid_renderer);
 end;
 
 {procedure draw_get_viewport(x,y,w,h:pinteger);
@@ -13,19 +13,58 @@ begin
    if(w<>nil)then w^:=_rect^.w;
    if(h<>nil)then h^:=_rect^.h;
 end;  }
+procedure draw_circle(x0,y0,r    :integer;color:PTColor);
+var x,y,
+    tx,ty,
+    di,error:integer;
+begin
+   with color^ do
+   SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);
+   SDL_SetRenderDrawBlendMode(vid_renderer,SDL_BLENDMODE_NONE);
 
-procedure draw_pixel    (x0,y0      :integer;color:PTColor);begin with color^ do SDL_SetRenderDrawColor(_renderer,r,g,b,a);SDL_SetRenderDrawBlendMode(_renderer,SDL_BLENDMODE_NONE);SDL_RenderDrawPoint(_renderer,x0,y0      );end;
-procedure draw_line     (x0,y0,x1,y1:integer;color:PTColor);begin with color^ do SDL_SetRenderDrawColor(_renderer,r,g,b,a);SDL_SetRenderDrawBlendMode(_renderer,SDL_BLENDMODE_NONE);SDL_RenderDrawLine (_renderer,x0,y0,x1,y1);end;
+   di:=r*2;
+   x :=r-1;
+   y :=0;
+   tx:=1;
+   ty:=1;
+   error:=tx-di;
+   while(x>=y)do
+   begin
+      SDL_RenderDrawPoint(vid_renderer,x0+x,y0-y);
+      SDL_RenderDrawPoint(vid_renderer,x0+x,y0+y);
+      SDL_RenderDrawPoint(vid_renderer,x0-x,y0-y);
+      SDL_RenderDrawPoint(vid_renderer,x0-x,y0+y);
+      SDL_RenderDrawPoint(vid_renderer,x0+y,y0-x);
+      SDL_RenderDrawPoint(vid_renderer,x0+y,y0+x);
+      SDL_RenderDrawPoint(vid_renderer,x0-y,y0-x);
+      SDL_RenderDrawPoint(vid_renderer,x0-y,y0+x);
+      if(error<=0)then
+      begin
+         y    +=1;
+         error+=ty;
+         ty   +=2;
+      end;
+      if(error>0)then
+      begin
+         x    -=1;
+         tx   +=2;
+         error+=(tx-di);
+      end;
+   end;
+end;
+procedure draw_pixel    (x0,y0      :integer;color:PTColor);begin with color^ do SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);SDL_SetRenderDrawBlendMode(vid_renderer,SDL_BLENDMODE_NONE);SDL_RenderDrawPoint(vid_renderer,x0,y0      );end;
+procedure draw_line     (x0,y0,x1,y1:integer;color:PTColor);begin with color^ do SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);SDL_SetRenderDrawBlendMode(vid_renderer,SDL_BLENDMODE_NONE);SDL_RenderDrawLine (vid_renderer,x0,y0,x1,y1);end;
+
 procedure draw_box      (x0,y0,x1,y1:integer;color:PTColor;blend:boolean);
 const bm : array[false..true] of cardinal = (SDL_BLENDMODE_NONE,SDL_BLENDMODE_BLEND);
 begin
-   _rect^.x:=x0;
-   _rect^.y:=y0;
-   _rect^.w:=x1-x0;
-   _rect^.h:=y1-y0;
-   with color^ do SDL_SetRenderDrawColor(_renderer,r,g,b,a);
-   SDL_SetRenderDrawBlendMode(_renderer,bm[blend]);
-   SDL_RenderFillRect(_renderer,_rect);
+   vid_rect^.x:=x0;
+   vid_rect^.y:=y0;
+   vid_rect^.w:=x1-x0;
+   vid_rect^.h:=y1-y0;
+   with color^ do SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);
+   SDL_SetRenderDrawBlendMode(vid_renderer,bm[blend]);
+   SDL_RenderFillRect(vid_renderer,vid_rect);
 end;
 procedure draw_rectangle(x0,y0,x1,y1:integer;color:PTColor);
 begin
@@ -38,27 +77,61 @@ end;
 
 procedure draw_texture(x,y,w,h:integer;tex:pSDL_Texture);
 begin
-   _rect^.x:=x;
-   _rect^.y:=y;
-   _rect^.w:=w;
-   _rect^.h:=h;
+   vid_rect^.x:=x;
+   vid_rect^.y:=y;
+   vid_rect^.w:=w;
+   vid_rect^.h:=h;
 
-   SDL_RenderCopy(_renderer,tex,nil,_rect);
+   SDL_RenderCopy(vid_renderer,tex,nil,vid_rect);
+end;
+procedure draw_textureEx(x,y,w,h:integer;tex:pSDL_Texture;angle:single;flipx,flipy:boolean);
+var flip:integer;
+begin
+   vid_rect^.x:=x;
+   vid_rect^.y:=y;
+   vid_rect^.w:=w;
+   vid_rect^.h:=h;
+
+   flip:=SDL_FLIP_NONE;
+   if(flipx)then flip+=SDL_FLIP_HORIZONTAL;
+   if(flipy)then flip+=SDL_FLIP_VERTICAL;
+
+   SDL_RenderCopyEx(vid_renderer,tex,nil,vid_rect,angle,nil,flip);
 end;
 
 procedure draw_image(x,y:integer;img:PTImage;fcolor:PTColor;blend:boolean;xscale,yscale:single);
+var nw,nh:integer;
 begin
    with img^ do
    begin
       if(blend)
       then SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND)
       else SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_NONE );
+      if(fcolor=nil)then fcolor:=@c_white;
       with fcolor^ do
       begin
          SDL_SetTextureColorMod(texture,r,g,b);
          SDL_SetTextureAlphaMod(texture,a);
       end;
-      draw_texture(x,y,trunc(w*xscale),trunc(h*yscale),texture);
+      if(xscale<>1)then nw:=trunc(w*xscale) else nw:=w;
+      if(yscale<>1)then nh:=trunc(h*yscale) else nh:=h;
+      draw_texture(x,y,nw,nh,texture);
+   end;
+end;
+procedure draw_imageEx(x,y:integer;img:PTImage;fcolor:PTColor;blend:boolean;nw,nh:integer);
+begin
+   with img^ do
+   begin
+      if(blend)
+      then SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND)
+      else SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_NONE );
+      if(fcolor=nil)then fcolor:=@c_white;
+      with fcolor^ do
+      begin
+         SDL_SetTextureColorMod(texture,r,g,b);
+         SDL_SetTextureAlphaMod(texture,a);
+      end;
+      draw_texture(x,y,nw,nh,texture);
    end;
 end;
 
@@ -100,12 +173,12 @@ begin
    l:=length(s);
    for i:=l downto 1 do
    begin
-      x-=trunc(spr_HUDnfw*xscale);
+      x-=trunc(spr_HUDfont_w*xscale);
       if(s[i]='-')
-      then draw_image(x,y,@spr_HUDnf[';'],@c_white,false,xscale,yscale)
+      then draw_image(x,y,@spr_HUDfont[';'],@c_white,false,xscale,yscale)
       else
         if(s[i] in hudfont)
-        then draw_image(x,y,@spr_HUDnf[s[i]],@c_white,false,xscale,yscale);
+        then draw_image(x,y,@spr_HUDfont[s[i]],@c_white,false,xscale,yscale);
    end;
 end;
 
@@ -169,35 +242,35 @@ const HHH : shortstring = ';;;';
 var i,a:integer;
     t:shortstring;
 begin
-   draw_image(0,vid_log_rh,@spr_hudpanel,@c_white,false,vid_hud_scale,vid_hud_scale);
+   draw_image(0,vid_log_rh,@spr_HUDpanel,@c_white,false,vid_hud_scale,vid_hud_scale);
 
-   with _players[cam_pl] do
+   with g_players[cam_pl] do
    if(state>ps_spec)then
    begin
-      draw_dHUDt(hud_scorex,hud_texty,i2s(frags),hud_fscale,hud_txtyscale);
-      draw_image(hud_teamx,hud_teamy,@spr_hudt[team],@c_white,false,vid_hud_scale,vid_hud_scale);
+      draw_dHUDt(hud_scorex,hud_texty,i2s(frags),hud_fscale,hud_txt_yscale);
+      draw_image(hud_teamx ,hud_teamy,@spr_HUDteam[team],@c_white,false,vid_hud_scale,vid_hud_scale);
 
       if(gun_curr<=WeaponsN)and(state>ps_dead)then
       begin
          if(cam_pl=cl_playeri)or(bot)then
          begin
             if(0<gun_ammot[gun_curr])and(gun_ammot[gun_curr]<=AmmoTypesN)
-            then draw_dHUDt(hud_ammox,hud_texty,i2s(hud_ammo[gun_ammot[gun_curr]]),hud_fscale,hud_txtyscale)
-            else draw_dHUDt(hud_ammox,hud_texty,HHH,hud_fscale,hud_txtyscale);
+            then draw_dHUDt(hud_ammox,hud_texty,i2s(hud_ammo[gun_ammot[gun_curr]]),hud_fscale,hud_txt_yscale)
+            else draw_dHUDt(hud_ammox,hud_texty,HHH,hud_fscale,hud_txt_yscale);
          end
-         else draw_dHUDt(hud_ammox,hud_texty,HHH,hud_fscale,hud_txtyscale);
+         else draw_dHUDt(hud_ammox,hud_texty,HHH,hud_fscale,hud_txt_yscale);
 
          i:=byte(gun_rld>gun_ganim[gun_curr]);
          draw_image(spr_HUDgunx[gun_curr,i],spr_HUDguny[gun_curr,i],@spr_HUDgun[gun_curr,i],@c_white,true,vid_hud_scale,vid_hud_scale);
 
-         draw_image(hud_gunx,hud_guny,@spr_hudw[gun_curr],@c_white,false,vid_hud_scale,vid_hud_scale);
+         draw_image(hud_gunx,hud_guny,@spr_HUDgun_inv[gun_curr],@c_white,false,vid_hud_scale,vid_hud_scale);
       end;
 
-      draw_dHUDt(hud_hitsx ,hud_texty,i2s(mm3i(0,hud_hits ,Player_max_hits )),hud_fscale,hud_txtyscale);
+      draw_dHUDt(hud_hitsx ,hud_texty,i2s(mm3i(0,hud_hits ,Player_max_hits )),hud_fscale,hud_txt_yscale);
 
       if(cam_pl=cl_playeri)or(bot)then
       begin
-         draw_dHUDt(hud_armorx,hud_texty,i2s(mm3i(0,hud_armor,Player_max_armor)),hud_fscale,hud_txtyscale);
+         draw_dHUDt(hud_armorx,hud_texty,i2s(mm3i(0,hud_armor,Player_max_armor)),hud_fscale,hud_txt_yscale);
 
          if(state>ps_dead)then
           for i:=0 to WeaponsN do
@@ -208,7 +281,7 @@ begin
              then draw_text(hud_invx+(i*hud_invix),hud_invy,hud_ifscale,b2s(i+1),ta_left,@c_green ,nil)
              else draw_text(hud_invx+(i*hud_invix),hud_invy,hud_ifscale,b2s(i+1),ta_left,@c_dgray ,nil);
       end
-      else draw_dHUDt(hud_armorx,hud_texty,HHH,hud_fscale,hud_txtyscale);
+      else draw_dHUDt(hud_armorx,hud_texty,HHH,hud_fscale,hud_txt_yscale);
 
       if(hits<=0)
       then i:=21
@@ -226,53 +299,53 @@ begin
           15 16 17   15-29
           18 19 20   0 -14
           }
-          a:=(animation_tick mod vid_3fps) div fr_fps;
-          if(RoomFlag(room,sv_g_instagib))
+          a:=(animation_tick mod vf_fpsx3) div fr_fpsx1;
+          if(Room_CheckFlag(room,sv_g_instagib))
           then i:=a
           else i:=((6-mm3i(0,hits div 15,6))*3)+a;
        end;
-      draw_image(hud_hudhx,hud_hudhy,@spr_hudh[i],@c_white,false,vid_hud_scale,vid_hud_scale);
+      draw_image(hud_hudhx,hud_hudhy,@spr_HUDface[i],@c_white,false,vid_hud_scale,vid_hud_scale);
    end;
 
    draw_HUD_ColorMask;
 
-   if(server_ttl>fr_2fps)
+   if(server_ttl>fr_fpsx2)
    then draw_text(vid_msg_x,vid_msg_y,menu_font_scale,str_awaitingsrv,ta_middle,@c_white,nil)
    else
      if(cl_net_cstat=cstate_snap)and(cl_net_mpartn<=NetMapParts)
      then draw_text(vid_msg_x,vid_msg_y,menu_font_scale,str_mapdownload,ta_middle,@c_white,nil);
 
-   with _room^ do
+   with sv_clroom^ do
     if(vote_time>0)then
     begin
        t:=str_vote+vote_cmd;
        if(length(vote_arg)>0)then t+=' '+vote_arg;
-       t+=' ('+w2s(vote_time div fr_fps)+')';
+       t+=' ('+w2s(vote_time div fr_fpsx1)+')';
 
        draw_text(vid_vote_x,vid_vote_y,menu_font_scale,t,ta_middle,@c_white,nil);
     end;
 
-   with _players[cl_playeri] do
+   with g_players[cl_playeri] do
     if(state=ps_spec)then
     begin
-       with _room^ do
+       with sv_clroom^ do
         if(cl_net_cstat>0)or(menu_locmatch)then
          if(cur_players>=max_players)
-         then draw_text(vid_log_hw,hud_pl_staty0,menu_font_scale,str_specmode+str_roomfull,ta_middle,@c_white,@c_black)
+         then draw_text(vid_log_hw,hud_pl_staty0,menu_font_scale,str_specmode+str_roomfull                      ,ta_middle,@c_white,@c_black)
          else draw_text(vid_log_hw,hud_pl_staty0,menu_font_scale,str_specmode+str_tojoin+'"'+GetKeyName(a_J)+'"',ta_middle,@c_white,@c_black);
 
-       if(cam_pl<>cl_playeri)then draw_text(vid_log_hw,hud_pl_staty1,menu_font_scale,str_following+_players[cam_pl].name,ta_middle,@c_white,@c_black);
+       if(cam_pl<>cl_playeri)then draw_text(vid_log_hw,hud_pl_staty1,menu_font_scale,str_following+g_players[cam_pl].name,ta_middle,@c_white,@c_black);
     end
     else
       if(cl_net_cstat>0)or(menu_locmatch)then
         if(state=ps_dead)and(cam_pl=cl_playeri)and(hits<=0)then draw_text(vid_log_hw,hud_pl_staty1,menu_font_scale,str_respawn+'"'+GetKeyName(a_A)+'"',ta_middle,@c_white,@c_black);
 
-   with _room^ do
+   with sv_clroom^ do
     if(demo_cstate=ds_read)and(demo_file<>nil)and(demo_size>0)then
      Draw_Box(0,vid_log_h-font_hh,round(vid_log_w*FilePos(demo_file^)/demo_size),vid_log_h,@c_yellow,false);
 
    if(player_showtime)then
-    with _room^ do draw_text(vid_log_hw,vid_log_h-font_h,1,TimeStr(time_sec,time_min),ta_middle,@c_white,@c_black);
+    with sv_clroom^ do draw_text(vid_log_hw,vid_log_h-font_h,1,TimeStr(time_sec,time_min),ta_middle,@c_white,@c_black);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -286,7 +359,7 @@ procedure debug_draw_map;
 const cw  = 9;
 var ix,iy:integer;
 begin
-   with _room^ do
+   with sv_clroom^ do
     for ix:=0 to map_mlw do
      for iy:=0 to map_mlw do
       if(rgrid[ix,iy] in mgr_bwalls)then
@@ -303,6 +376,7 @@ end;
 
 procedure draw_Game;
 begin
+   if(hud_gborder_w>0)then
    draw_box(0,0,vid_log_w,vid_log_rh,@c_daqua,false);
 
    draw_rc;
@@ -313,15 +387,45 @@ begin
    if(not hud_console)then
    begin
       if(cl_acts[a_S]>0)
-      or(_room^.time_scorepause>0)
+      or(sv_clroom^.time_scorepause>0)
       then draw_scoreboard;
 
       draw_last_mess;
    end;
 
-
    //debug_draw_map;
-   //debug_draw_sprite(@spr_ef[eid_puff,2]);
+   //debug_draw_sprite(@spr_rceffect[eid_puff,2]);
+end;
+
+procedure draw_Debug;
+{var
+bx,by,
+tx,ty,
+tdir : single;
+dir1,
+dir2:integer;
+p:byte; }
+begin
+   {for p:=0 to MaxPlayers do
+    with g_players[p] do
+     if(state>ps_dead)then
+      if(bot)then
+      begin
+         bx :=x;
+         by :=y;
+      end
+      else
+      begin
+         tx  :=x;
+         ty  :=y;
+         tdir:=dir;
+      end;
+
+   dir1:=round(point_dir(tx,ty,bx,by));
+   dir2:=round(dir_diff(dir1,tdir));
+
+   draw_text(vid_log_w,20,1,i2s(dir1),ta_right,@c_white,@c_black);
+   draw_text(vid_log_w,30,1,i2s(dir2),ta_right,@c_white,@c_black);  }
 end;
 
 procedure G_Draw;
@@ -336,18 +440,19 @@ begin
 
       scores_save_need:=false;
       scores_message  :='';
-      MakeScreenShot(_room^.mapname);
+      MakeScreenShot(sv_clroom^.mapname);
    end;
 
    ClearScreen(@c_black);
 
-   case game_mode of
-   gm_game  : draw_Game;
-   gm_menu  : draw_Menu;
-   gm_editor: draw_Editor;
+   case cl_mode of
+   clm_game  : draw_Game;
+   clm_menu  : draw_Menu;
+   clm_editor: draw_Editor;
    end;
 
    // debug
+   draw_Debug;
 
    if(player_showfps)then
    begin
@@ -358,16 +463,18 @@ begin
    if(hud_console)
    then draw_console(0,hud_text_scrol);
 
-   {draw_text(vid_log_w,10,1,i2s(menu_num) ,ta_right,@c_white);
+   {
+   draw_text(vid_log_w,10,1,i2s(menu_num) ,ta_right,@c_white);
    draw_text(vid_log_w,20,1,i2s(console_historyn) ,ta_right,@c_white);
    draw_text(vid_log_w,30,1,b2s(menu_s) ,ta_right,@c_white);
    draw_text(vid_log_w,40,1,b2s(cl_playeri ) ,ta_right,@c_white);
    draw_text(vid_log_w,50,1,i2s(hud_text_scrol ) ,ta_right,@c_white);
    draw_text(vid_log_w,60,1,w2s(net_packets_in0 ) ,ta_right,@c_lime);
-   draw_text(vid_log_w,70,1,w2s(net_packets_out0) ,ta_right,@c_red ); }
+   draw_text(vid_log_w,70,1,w2s(net_packets_out0) ,ta_right,@c_red );
+   }
 
    {if(cl_playeri<=MaxPlayers)then
-   with _players[cl_playeri] do
+   with g_players[cl_playeri] do
    begin
    draw_text(vid_log_w,80,1,si2s(x),ta_right,@c_white );
    draw_text(vid_log_w,90,1,si2s(x),ta_right,@c_white );
@@ -389,10 +496,9 @@ begin
       net_packets_out0:=net_packets_out;
       net_packets_in  :=0;
       net_packets_out :=0;
-      net_packets_t   :=fr_fps;
+      net_packets_t   :=fr_fpsx1;
    end; }
 
-
-   SDL_RenderPresent(_renderer);
+   SDL_RenderPresent(vid_renderer);
 end;
 

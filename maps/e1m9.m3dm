@@ -8,8 +8,8 @@
                   A . A
                   A616A
                   AA#AA
-                  A   A
-                 AA 9 AA
+                  A%9%A
+                 AA   AA
                 B n b n B
                  AA   AA
                   C     CA
@@ -23,14 +23,14 @@
        N  NN>1             1<N
        N77NN                 N
 NNNNNNNN  NO  4AAb     bAA4  O
-N233    77NN                 N
-N333      NN                 N
-N333NNN   NN                 N
-N333N N   NP   AAb     bAA   P
-N333N N   NN                 N
-N333N N    N                 N
-N333N N    N                 N
-N333N NNNO     AAb     bAA   O
+N:$$    77NN                 N
+N$$$      NN                 N
+N$$$NNN   NN                 N
+N$$$N N   NP   AAb     bAA   P
+N$$$N N   NN                 N
+N$$$N N    N                 N
+N$$$N N    N                 N
+N$$$N NNNO     AAb  2  bAA   O
 NNNNN   NNNN                 N
            N                 N
            N                 N
@@ -55,7 +55,7 @@ NNNNN   NNNN                 N
                   N   N
                   N   N
                  NN   NN
-                 Ns494sN
+                 Ns%9%sN
                  N 6^6 N
                  NNNtNNN
                    N NNN

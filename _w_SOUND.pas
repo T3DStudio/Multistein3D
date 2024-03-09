@@ -5,12 +5,14 @@ MaxSoundSources = 32;
 type
 
 TSSource = record
-   _psx,_psy:psingle;
-   camdist,
-   _csx,_csy:single;
+   snd_psX,
+   snd_psY  : psingle;
+   snd_CamDist,
+   snd_sX,
+   snd_sY   : single;
    snd_oalsrc,
-   snd_chunk:TALuint;
-   new      :boolean;
+   snd_chunk: TALuint;
+   snd_new  : boolean;
 end;
 
 var   MainDevice  : TALCdevice;
@@ -48,30 +50,30 @@ begin
    SourceisPlaying:=(i=AL_PLAYING);
 end;
 
-procedure PlaySoundSource(schunk:TALint;psx,psy:psingle;csx,csy:single);
+procedure PlaySoundSource(schunk:TALint;psx,psy:psingle;sx,sy:single);
 var es,p:byte;
     d,di:single;
 begin
-   if(game_mode>0)or(snd_volume=0)or(nosound)then exit;
+   if(cl_mode>0)or(snd_volume=0)or(nosound)then exit;
 
    if(psx<>nil)and(psy<>nil)then
    begin
-      csx:=psx^;
-      csy:=psy^;
+      sx:=psx^;
+      sy:=psy^;
    end;
-   d :=dist_r(cam_x,cam_y,csx,csy);
+   d :=point_dist(cam_x,cam_y,sx,sy);
 
    es:=255;
    for p:=1 to MaxSoundSources do
     with SSources[p] do
     begin
        if(psx<>nil)and(psy<>nil)then
-        if(_psx=psx)and(_psy=psy)then
+        if(snd_psX=psx)and(snd_psY=psy)then
         begin
            es:=p;
            break;
         end;
-       if(_csx=csx)and(_csy=csy)then
+       if(snd_sX=sx)and(snd_sY=sy)then
        begin
           es:=p;
           break;
@@ -92,10 +94,10 @@ begin
       di:=0;
       for p:=1 to MaxSoundSources do
        with SSources[p] do
-        if(camdist>di)then
+        if(snd_CamDist>di)then
         begin
            es:=p;
-           di:=camdist;
+           di:=snd_CamDist;
         end;
       if(d>=di)then es:=255;
    end;
@@ -103,13 +105,13 @@ begin
    if(es<=MaxSoundSources)then
     with SSources[es] do
     begin
-       _psx:=psx;
-       _psy:=psy;
-       _csx:=csx;
-       _csy:=csy;
-       snd_chunk:=schunk;
-       camdist:=d;
-       new:=true;
+       snd_psX    :=psx;
+       snd_psY    :=psy;
+       snd_sX     := sx;
+       snd_sY     := sy;
+       snd_chunk  :=schunk;
+       snd_CamDist:=d;
+       snd_new    :=true;
     end;
 end;
 
@@ -119,7 +121,7 @@ begin
 
    with SSources[0] do
    begin
-      new:=true;
+      snd_new  :=true;
       snd_chunk:=schunk;
    end;
 end;
@@ -155,23 +157,23 @@ begin
     begin
        alSourcef(snd_oalsrc, AL_GAIN, snd_volume1);
 
-       if(_psx<>nil)and(_psy<>nil)then
+       if(snd_psX<>nil)and(snd_psY<>nil)then
        begin
-          _csx:=_psx^;
-          _csy:=_psy^;
+          snd_sX:=snd_psX^;
+          snd_sY:=snd_psY^;
        end;
-       camdist:=dist_r(cam_x,cam_y,_csx,_csy);
+       snd_CamDist:=point_dist(cam_x,cam_y,snd_sX,snd_sY);
 
-       SourcePos(snd_oalsrc,_csx,_csy);
+       SourcePos(snd_oalsrc,snd_sX,snd_sY);
 
-       if(new)then
+       if(snd_new)then
        begin
           if(p>0)then
           alSourceStop(snd_oalsrc);
 
           alSourcei   (snd_oalsrc, AL_BUFFER, snd_chunk);
           alSourcePlay(snd_oalsrc);
-          new:=false;
+          snd_new:=false;
        end;
     end;
 end;
@@ -197,28 +199,30 @@ begin
 
    with SSources[0] do
    begin
-     _psx:=@cam_x;
-     _psy:=@cam_y;
-     _csx:=cam_x;
-     _csy:=cam_y;
+     snd_psX:=@cam_x;
+     snd_psY:=@cam_y;
+     snd_sX := cam_x;
+     snd_sY := cam_y;
    end;
 
    SoundProc;
 
-   snd_weapon := LoadSound('snd_weapon');
-   snd_chain  := LoadSound('snd_chain' );
-   snd_death  := LoadSound('snd_death' );
-
-   snd_noammo := LoadSound('snd_noammo');
-   snd_ammo   := LoadSound('snd_ammo'  );
-   snd_chat   := LoadSound('snd_chat'  );
-   snd_health := LoadSound('snd_health');
-   snd_armor  := LoadSound('snd_armor' );
-   snd_score  := LoadSound('snd_score' );
-   snd_spawn  := LoadSound('snd_spawn' );
-   snd_mmove  := LoadSound('snd_mmove' );
-   for i:=0 to 4 do snd_gun[i] := LoadSound('snd_g'+b2s(i));
-   for i:=0 to 3 do
+   snd_meat   := LoadSound('snd_meat'   );
+   snd_fire   := LoadSound('snd_fire'   );
+   snd_weapon := LoadSound('snd_weapon' );
+   snd_chain  := LoadSound('snd_chain'  );
+   snd_death  := LoadSound('snd_death'  );
+   snd_explode:= LoadSound('snd_explode');
+   snd_noammo := LoadSound('snd_noammo' );
+   snd_ammo   := LoadSound('snd_ammo'   );
+   snd_chat   := LoadSound('snd_chat'   );
+   snd_health := LoadSound('snd_health' );
+   snd_armor  := LoadSound('snd_armor'  );
+   snd_score  := LoadSound('snd_score'  );
+   snd_spawn  := LoadSound('snd_spawn'  );
+   snd_mmove  := LoadSound('snd_mmove'  );
+   for i:=0 to WeaponsN do snd_gun[i] := LoadSound('snd_g'+b2s(i));
+   for i:=0 to MaxTeamsI do
    begin
      snd_skinD[i] := LoadSound('snd_skinD'+b2s(i));
      snd_skinP[i] := LoadSound('snd_skinP'+b2s(i));

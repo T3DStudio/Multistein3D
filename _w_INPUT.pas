@@ -13,11 +13,12 @@ kt_keyboard: case key of
    end;
 
    for i:=0 to 255 do
-    if(cl_keys_t[i]=kt)and(cl_keys[i]=key)then
-     case down of
-     false: cl_acts[i]:=-1;
-     true : if(cl_acts[i]<=0)then cl_acts[i]:=1;
-     end;
+    if (cl_keys_t[i]=kt )
+    and(cl_keys  [i]=key)then
+      case down of
+      false :    cl_acts[i]:=-1;
+      true  : if(cl_acts[i]<=0)then cl_acts[i]:=1;
+      end;
 
    if(key>0)then
     if(down)then
@@ -30,7 +31,8 @@ kt_keyboard: case key of
        end;
     end
     else
-     if(last_key_t=kt)and(last_key=key)then
+     if (last_key_t=kt )
+     and(last_key  =key)then
      begin
         last_key_t:=0;
         last_key  :=0;
@@ -58,10 +60,11 @@ procedure ActKeysClear;
 var i:byte;
 begin
    for i:=0 to 255 do cl_acts[i]:=0;
+   last_key_m:=0;
 end;
 
 procedure G_Events;
-var i:byte;
+var      i:byte;
 clear_keys:boolean;
 begin
    clear_keys:=false;
@@ -73,17 +76,20 @@ begin
 
    cam_turn:=0;
 
-   while (SDL_PollEvent(_event)>0) do
-   case (_event^.type_) of
-      SDL_TEXTINPUT       : keyboard_string+=_event^.text.text;
-      SDL_MOUSEMOTION     : if(game_mode=gm_game)then G_Mouse(_event^.motion.xrel);
-      SDL_MOUSEBUTTONUP   : KeyCode(_event^.button.button      ,false,kt_mouseb  );
-      SDL_MOUSEBUTTONDOWN : KeyCode(_event^.button.button      ,true ,kt_mouseb  );
-      SDL_KEYUP           : KeyCode(_event^.key.keysym.sym     ,false,kt_keyboard);
-      SDL_KEYDOWN         : KeyCode(_event^.key.keysym.sym     ,true ,kt_keyboard);
-      SDL_MOUSEWHEEL      : KeyCode(wy2mwkey[_event^.wheel.y<0],true ,kt_mousewh );
-      SDL_QUITEV          : _MC:=false;
-      SDL_WINDOWEVENT     : case(_event^.window.event)of
+   while (SDL_PollEvent(sys_event)>0) do
+     case (sys_event^.type_) of
+      SDL_TEXTINPUT       : keyboard_string+=sys_event^.text.text;
+      SDL_MOUSEMOTION     : case(cl_mode)of
+                            clm_game  : G_Mouse(sys_event^.motion.xrel);
+                            clm_editor: editor_mouse(sys_event^.motion.x,sys_event^.motion.y);
+                            end;
+      SDL_MOUSEBUTTONUP   : KeyCode(sys_event^.button.button      ,false,kt_mouseb  );
+      SDL_MOUSEBUTTONDOWN : KeyCode(sys_event^.button.button      ,true ,kt_mouseb  );
+      SDL_KEYUP           : KeyCode(sys_event^.key.keysym.sym     ,false,kt_keyboard);
+      SDL_KEYDOWN         : KeyCode(sys_event^.key.keysym.sym     ,true ,kt_keyboard);
+      SDL_MOUSEWHEEL      : KeyCode(wy2mwkey[sys_event^.wheel.y<0],true ,kt_mousewh );
+      SDL_QUITEV          : sys_cycle:=false;
+      SDL_WINDOWEVENT     : case(sys_event^.window.event)of
                             SDL_WINDOWEVENT_SHOWN,
                             SDL_WINDOWEVENT_HIDDEN,
                             SDL_WINDOWEVENT_EXPOSED,
@@ -94,14 +100,14 @@ begin
                             SDL_WINDOWEVENT_FOCUS_GAINED,
                             SDL_WINDOWEVENT_FOCUS_LOST    : clear_keys:=true;
                             SDL_WINDOWEVENT_RESIZED       : begin
-                                                            window_w:=_event^.window.data1;
-                                                            window_h:=_event^.window.data2;
-                                                            make_screenshot_wh(window_w,window_h);
+                                                            window_w  :=sys_event^.window.data1;
+                                                            window_h  :=sys_event^.window.data2;
+                                                            MakeScreenShot_CalcSize(window_w,window_h);
                                                             clear_keys:=true;
                                                             end;
                             end;
-   else
-   end;
+     else
+     end;
 
    KeyboardStringRussian;
 
@@ -114,7 +120,7 @@ procedure G_Chat;
 begin
    if(cl_acts[a_menter1]=1)then
    begin
-      GameCMDChat(chat_str);
+      cl_ChatCommand(chat_str);
       chat_str :='';
       chat_line:=false;
    end
@@ -143,8 +149,8 @@ procedure G_Console;
 begin
    if(cl_acts[a_menter1]=1)then
    begin
-      if(not GameParseCmd(console_str))
-      then net_sendcmd(console_str);
+      if(not GameParseCommand(console_str))
+      then net_SendCommand(console_str);
 
       if(console_historyi>MaxRoomLog)
       then console_historyi:=0;
@@ -198,27 +204,27 @@ begin
 
       if(cl_acts[a_alt]=0)then
       begin
-      if(cl_acts[a_C1    ]=1)then net_sendchat(player_chat1)else
-      if(cl_acts[a_C2    ]=1)then net_sendchat(player_chat2)else
-      if(cl_acts[a_C3    ]=1)then net_sendchat(player_chat3)else
-      if(cl_acts[a_C4    ]=1)then net_sendchat(player_chat4)else
-      if(cl_acts[a_C5    ]=1)then net_sendchat(player_chat5);
+      if(cl_acts[a_C1    ]=1)then cl_ChatCommand(player_chat1)else
+      if(cl_acts[a_C2    ]=1)then cl_ChatCommand(player_chat2)else
+      if(cl_acts[a_C3    ]=1)then cl_ChatCommand(player_chat3)else
+      if(cl_acts[a_C4    ]=1)then cl_ChatCommand(player_chat4)else
+      if(cl_acts[a_C5    ]=1)then cl_ChatCommand(player_chat5);
 
-      if(cl_acts[a_votey ]=1)then net_sendcmd(cmd_voteyes)else
-      if(cl_acts[a_voten ]=1)then net_sendcmd(cmd_voteno );
+      if(cl_acts[a_votey ]=1)then net_SendCommand(cmd_voteyes)else
+      if(cl_acts[a_voten ]=1)then net_SendCommand(cmd_voteno );
       end;
 
       if(cl_acts[a_dpause]=1)then demo_play_pause:=not demo_play_pause;
       if(cl_acts[a_dskipb]=1)then
       begin
-         demo_setpos(_room,_room^.demo_fpos_t-(fr_fps*5));
+         demo_setpos(sv_clroom,sv_clroom^.demo_fpos_t-(fr_fpsx1*5));
          exit;
       end;
       if(cl_acts[a_dskipf]=1)then
       begin
          if(demo_play_pause)
          then demo_skip:=2
-         else demo_skip:=(fr_fps div demo_timer1_period)*10;
+         else demo_skip:=(fr_fpsx1 div demo_timer1_period)*10;
          exit;
       end;
    end;
@@ -230,9 +236,128 @@ procedure G_EditorInput;
 begin
    if(cl_acts[a_menu]=1)then
    begin
-      game_mode:=gm_menu;
+      cl_mode:=clm_menu;
       exit;
    end;
+
+   if(cl_acts[a_edit_left ]>0)then begin editor_vx-=editor_vspeed;editor_ViewBorders;end;
+   if(cl_acts[a_edit_right]>0)then begin editor_vx+=editor_vspeed;editor_ViewBorders;end;
+   if(cl_acts[a_edit_up   ]>0)then begin editor_vy-=editor_vspeed;editor_ViewBorders;end;
+   if(cl_acts[a_edit_down ]>0)then begin editor_vy+=editor_vspeed;editor_ViewBorders;end;
+
+   if(cl_acts[a_edit_mwheeldown]>0)then
+     case editor_panel_b of
+                -1 : begin
+                        editor_grid_w:=max2(10,editor_grid_w-2);
+                        editor_grid_hw:=editor_grid_w div 2;
+                        editor_ReCalcMapW;
+                     end;
+editor_pb_mapload  : editor_panel_mapi:=(editor_panel_mapi+1) mod g_mapn;
+
+editor_pb_bwalls   : begin editor_RollBrush(mgr_bwalls,@editor_brush_wall ,true);editor_brush:=editor_brush_wall ;end;
+editor_pb_bdecors  : begin editor_RollBrush(mgr_decors,@editor_brush_decor,true);editor_brush:=editor_brush_decor;end;
+editor_pb_bitems   : begin editor_RollBrush(mgr_items ,@editor_brush_item ,true);editor_brush:=editor_brush_item ;end;
+editor_pb_bspawns  : begin editor_RollBrush(mgr_spawns,@editor_brush_spawn,true);editor_brush:=editor_brush_spawn;end;
+
+editor_pb_hmove    : editor_MoveMap(-1, 0);
+editor_pb_vmove    : editor_MoveMap( 0,-1);
+
+editor_pb_ceil_r,
+editor_pb_ceil_g,
+editor_pb_ceil_b   : begin
+                     case editor_panel_b of
+    editor_pb_ceil_r   : editor_ceil_color.r-=5;
+    editor_pb_ceil_g   : editor_ceil_color.g-=5;
+    editor_pb_ceil_b   : editor_ceil_color.b-=5;
+                     end;
+                     with editor_ceil_color do editor_ceil_color:=ColorRGBA(r,g,b,255);
+                     end;
+editor_pb_floor_r,
+editor_pb_floor_g,
+editor_pb_floor_b  : begin
+                     case editor_panel_b of
+    editor_pb_floor_r  : editor_floor_color.r-=5;
+    editor_pb_floor_g  : editor_floor_color.g-=5;
+    editor_pb_floor_b  : editor_floor_color.b-=5;
+                     end;
+                     with editor_floor_color do editor_floor_color:=ColorRGBA(r,g,b,255);
+                     end;
+     end;
+   if(cl_acts[a_edit_mwheelup  ]>0)then
+     case editor_panel_b of
+                -1 : begin
+                        editor_grid_w:=min2(editor_grid_w+2,64);
+                        editor_grid_hw:=editor_grid_w div 2;
+                        editor_ReCalcMapW;
+                     end;
+editor_pb_mapload  : if(editor_panel_mapi=0)then editor_panel_mapi:=g_mapn-1 else editor_panel_mapi-=1;
+
+editor_pb_bwalls   : begin editor_RollBrush(mgr_bwalls,@editor_brush_wall ,false);editor_brush:=editor_brush_wall ;end;
+editor_pb_bdecors  : begin editor_RollBrush(mgr_decors,@editor_brush_decor,false);editor_brush:=editor_brush_decor;end;
+editor_pb_bitems   : begin editor_RollBrush(mgr_items ,@editor_brush_item ,false);editor_brush:=editor_brush_item ;end;
+editor_pb_bspawns  : begin editor_RollBrush(mgr_spawns,@editor_brush_spawn,false);editor_brush:=editor_brush_spawn;end;
+
+editor_pb_hmove    : editor_MoveMap( 1, 0);
+editor_pb_vmove    : editor_MoveMap( 0, 1);
+
+editor_pb_ceil_r,
+editor_pb_ceil_g,
+editor_pb_ceil_b   : begin
+                     case editor_panel_b of
+    editor_pb_ceil_r   : editor_ceil_color.r+=5;
+    editor_pb_ceil_g   : editor_ceil_color.g+=5;
+    editor_pb_ceil_b   : editor_ceil_color.b+=5;
+                     end;
+                     with editor_ceil_color do editor_ceil_color:=ColorRGBA(r,g,b,255);
+                     end;
+editor_pb_floor_r,
+editor_pb_floor_g,
+editor_pb_floor_b  : begin
+                     case editor_panel_b of
+    editor_pb_floor_r  : editor_floor_color.r+=5;
+    editor_pb_floor_g  : editor_floor_color.g+=5;
+    editor_pb_floor_b  : editor_floor_color.b+=5;
+                     end;
+                     with editor_floor_color do editor_floor_color:=ColorRGBA(r,g,b,255);
+                     end;
+     end;
+
+   // left press
+   if(cl_acts[a_edit_lmb]>0)then
+     case editor_panel_b of
+  -1 : if(InMapEditorBorders(editor_mouse_gx,editor_mouse_gy))then editor_map[editor_mouse_gx,editor_mouse_gy]:=editor_brush;
+     else
+       if(cl_acts[a_edit_lmb]=1)then
+         case editor_panel_b of
+editor_pb_mapload : editor_LoadMapByN(editor_panel_mapi);
+editor_pb_save    : editor_savemap;
+editor_pb_bwalls  : editor_brush:=editor_brush_wall;
+editor_pb_bdecors : editor_brush:=editor_brush_decor;
+editor_pb_bitems  : editor_brush:=editor_brush_item;
+editor_pb_bspawns : editor_brush:=editor_brush_spawn;
+         end;
+
+     end;
+
+   // right
+   if(cl_acts[a_edit_rmb]>0)then
+     case editor_panel_b of
+     -1 : if(InMapEditorBorders(editor_mouse_gx,editor_mouse_gy))then editor_map[editor_mouse_gx,editor_mouse_gy]:=mgr_empty;
+     end;
+
+   // mid
+   if(cl_acts[a_edit_mmb]>0)then
+     case editor_panel_b of
+     -1 : if(InMapEditorBorders(editor_mouse_gx,editor_mouse_gy))then
+            if(editor_map[editor_mouse_gx,editor_mouse_gy]<>mgr_empty)then
+            begin
+               editor_brush:=editor_map[editor_mouse_gx,editor_mouse_gy];
+               if(editor_brush in mgr_bwalls)then editor_brush_wall :=editor_brush;
+               if(editor_brush in mgr_decors)then editor_brush_decor:=editor_brush;
+               if(editor_brush in mgr_items )then editor_brush_item :=editor_brush;
+               if(editor_brush in mgr_spawns)then editor_brush_spawn:=editor_brush;
+            end;
+     end;
 end;
 
 function G_CommonInput:boolean;
@@ -250,7 +375,7 @@ begin
    if(not hud_console)then
     if(cl_acts[a_SS]=1)then
     begin
-       MakeScreenShot(_room^.mapname);
+       MakeScreenShot(sv_clroom^.mapname);
        ActKeysClear;
        exit;
     end;
@@ -294,12 +419,12 @@ begin
    G_Events;
 
    if(G_CommonInput)then
-   case game_mode of
-gm_game  : if(not hud_console)then
-           G_GameInput;
-gm_menu  : G_MenuInput;
-gm_editor: G_EditorInput;
-   end;
+     case cl_mode of
+clm_game  : if(not hud_console)then
+            G_GameInput;
+clm_menu  : G_MenuInput;
+clm_editor: G_EditorInput;
+     end;
 
    keyboard_string:='';
 end;
@@ -308,11 +433,11 @@ end;
 
 procedure G_Input;
 begin
-   while (SDL_PollEvent( _event )>0) do
-    case (_event^.type_) of
-    SDL_KEYDOWN : ;
-    SDL_QUITEV  : _MC:=false;
-    end;
+   while(SDL_PollEvent( sys_event )>0)do
+     case(sys_event^.type_)of
+     SDL_KEYDOWN : ;
+     SDL_QUITEV  : sys_cycle:=false;
+     end;
 end;
 
 {$ENDIF}

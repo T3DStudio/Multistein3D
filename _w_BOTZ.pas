@@ -1,53 +1,40 @@
 
-function line_see(aroom:PTRoom;x0,y0,x1,y1:single):boolean;
-var px,py,sx,sy,d:single;
+var
+bat_h2_ammo,
+bat_h4_ammo  : array[0..AmmoTypesN] of integer;
+
+procedure bot_Init;
+var i:integer;
 begin
-   line_see:=true;
-   if(x0=x1)and(y0=y1)then exit;
-
-   d:=dist_r(x0,y0,x1,y1)*2;
-   sx:=(x1-x0)/d;
-   sy:=(y1-y0)/d;
-
-   while true do
+   for i:=0 to AmmoTypesN do
    begin
-      px:=x0;
-      py:=y0;
-      x0:=x0+sx;
-      y0:=y0+sy;
-
-      d -=1;
-      if(d<=0)then break;
-
-      if(BWallHit(aroom,px,py,x0,y0)>1)then
-      begin
-         line_see:=false;
-         break;
-      end;
+      bat_h2_ammo[i]:=Player_max_ammo[i] div 2;
+      bat_h4_ammo[i]:=Player_max_ammo[i] div 4;
    end;
 end;
 
-function _CheckEnemy(en:byte;aplayer:PTPlayer):boolean;
+function bot_CheckEnemy(en:byte;aplayer:PTPlayer):boolean;
 begin
-   _CheckEnemy:=false;
+   bot_CheckEnemy:=false;
    if(en<=MaxPlayers)then
-    with _players[en] do
-     if(state>ps_dead)and(en<>aplayer^.pnum){and(bot)}and(roomi=aplayer^.roomi)then
-      if(RoomFlag(room,sv_g_teams)=false)
-      then _CheckEnemy:=true
-      else
-        if(team<>aplayer^.team)then _CheckEnemy:=true;
+     with g_players[en] do
+       if(state>ps_dead)and(en<>aplayer^.pnum)and(bot)and(roomi=aplayer^.roomi)then
+         if(team<>aplayer^.team)
+         then bot_CheckEnemy:=true
+         else
+           if(not Room_CheckFlag(room,sv_g_teams))
+           then bot_CheckEnemy:=true;
 end;
 
-function _BotPlayerEnemy(aplayer:PTPlayer):boolean;
+function bot_PickEnemy(aplayer:PTPlayer):boolean;
 var s:integer;
 begin
-   _BotPlayerEnemy:=false;
-   if(_CheckEnemy(aplayer^.bot_enemy,aplayer))then
-    with _players[aplayer^.bot_enemy] do
-     if(line_see(room,aplayer^.x,aplayer^.y,x,y))then
+   bot_PickEnemy:=false;
+   if(bot_CheckEnemy(aplayer^.bot_enemy,aplayer))then
+    with g_players[aplayer^.bot_enemy] do
+     if(not collision_line(room,aplayer^.x,aplayer^.y,x,y))then
      begin
-        _BotPlayerEnemy:=true;
+        bot_PickEnemy:=true;
         aplayer^.bot_ax:=x;
         aplayer^.bot_ay:=y;
         exit;
@@ -58,25 +45,66 @@ begin
       bot_enemy+=1;
       if(bot_enemy>MaxPlayers)then bot_enemy:=0;
       s-=1;
-   until (s<=0)or(_CheckEnemy(bot_enemy,aplayer));
+   until (s<=0)or(bot_CheckEnemy(bot_enemy,aplayer));
 end;
 
-procedure _BotTarget(aplayer:PTPlayer);
-const btt_health= 1;
-      btt_ammo  = 2;
-      btt_armor = 3;
-var i,o:integer;
-    w  :byte;
-    ni,d:single;
-    insta:boolean;
+procedure bot_PickTarget(aplayer:PTPlayer);
+const btt_health = 1;
+      btt_ammo   = 2;
+      btt_armor  = 3;
+var   i,o : integer;
+        w : byte;
+      ni,d: single;
+g_instagib: boolean;
+function HaveGoodWeapons:boolean;
+var n:byte;
+begin
+   HaveGoodWeapons:=false;
+   with aplayer^ do
+    for n:=2 to WeaponsN do
+     if((gun_inv and gun_bit[n])>0)then
+      if(ammo[gun_ammot[n]]>=bat_h4_ammo[gun_ammot[n]])then
+      begin
+         HaveGoodWeapons:=true;
+         break;
+      end;
+end;
+function HaveLowAmmo:boolean;
+var n:byte;
+begin
+   HaveLowAmmo:=false;
+   with aplayer^ do
+    for n:=2 to WeaponsN do
+     if((gun_inv and gun_bit[n])>0)then
+       if(ammo[gun_ammot[n]]>=bat_h2_ammo[gun_ammot[n]])then
+       begin
+          HaveLowAmmo:=false;
+          break;
+       end
+       else HaveLowAmmo:=true;
+end;
+function HaveNotFullAmmo:boolean;
+var n:byte;
+begin
+   HaveNotFullAmmo:=false;
+   with aplayer^ do
+    for n:=2 to WeaponsN do
+     if((gun_inv and gun_bit[n])>0)then
+       if(ammo[gun_ammot[n]]=Player_max_ammo[gun_ammot[n]])then
+       begin
+          HaveNotFullAmmo:=false;
+          break;
+       end
+       else HaveNotFullAmmo:=true;
+end;
 begin
    with aplayer^ do
    with room^ do
    begin
-      insta:=RoomFlag(room,sv_g_instagib);
-      if(bot_ax>0)then
-       if((hits>50)and(ammo[1]>50)and((gun_inv and %11111100)>0))or(insta)then
-        if(dist_r(bot_ax,bot_ay,x,y)<2)then
+      g_instagib:=Room_CheckFlag(room,sv_g_instagib);
+      if(bot_ax>0)then   // run for enemy
+       if((hits>50)and(HaveGoodWeapons))or(g_instagib)then
+        if(point_dist(bot_ax,bot_ay,x,y)<2)then
         begin
            bot_ax:=0;
            bot_ay:=0;
@@ -87,48 +115,53 @@ begin
            bot_my:=bot_ay;
            exit;
         end;
-      if(r_itemn>0)then
+
+      if(r_item_n>0)then
       begin
          w:=0;
 
-         if(not insta)then
+         if(not g_instagib)then
           if(hits<50)
           then w:=btt_health
           else
-           if(ammo[1]<50)
+           if(HaveLowAmmo)
            then w:=btt_ammo
            else
              if(hits<Player_max_hits)
              then w:=btt_health
              else
-              if(ammo[1]<100)
+              if(HaveNotFullAmmo)
               then w:=btt_ammo
               else
                if(armor<Player_max_armor)
-               then w:=btt_armor
-               else
-                if(ammo[1]<Player_max_ammo[1])
-                then w:=btt_ammo;
+               then w:=btt_armor;
 
-         o :=random(r_itemn);
+         o :=random(r_item_n);
          ni:=1000;
 
          if(w>0)then
-          for i:=0 to r_itemn-1 do
-           with r_items[i] do
-            if(irespt<fr_fps)then
+          for i:=0 to r_item_n-1 do
+           with r_item_l[i] do
+            if(irespt<fr_fpsx1)then
             begin
                case w of
       btt_health: if(ihealth <=0)and
                     (iarmor  <=0)then continue;
-      btt_ammo  : if(iammo[1]<=0)then continue;
+      btt_ammo  : if(iammo[1]> 0)
+                  or(iammo[2]> 0)
+                  or(iammo[3]> 0)
+                  or(iammo[4]> 0)
+                  or(iammo[5]> 0)then
+                                 else continue;
       btt_armor : if(iarmor  <=0)then continue;
                end;
 
-               if(RoomFlag(room,sv_g_itemrespawn)=false)or(RoomFlag(room,sv_g_weaponstay))then
-                if(iweapon>0)and((iweapon or gun_inv)=gun_inv)then continue;
+               if(not Room_CheckFlag(room,sv_g_itemrespawn))
+               or(Room_CheckFlag(room,sv_g_weaponstay))
+               then
+                 if(iweapon>0)and((iweapon or gun_inv)=gun_inv)then continue;
 
-               d:=dist_r(x,y,ix,iy);
+               d:=point_dist(x,y,ix,iy);
                if(d<ni)then
                begin
                   ni:=d;
@@ -137,19 +170,19 @@ begin
             end;
 
          if(ni=1000)then
-          if(bot_mx>0)and(dist_r(bot_mx,bot_my,x,y)>1)then exit;
+          if(bot_mx>0)and(point_dist(bot_mx,bot_my,x,y)>1)then exit;
 
-         with r_items[o] do
+         with r_item_l[o] do
          begin
             bot_mx:=ix;
             bot_my:=iy;
          end;
          exit;
       end;
-      if(r_spawnn>0)then
+      if(r_spawn_n>0)then
       begin
-         i:=random(r_spawnn);
-         with r_spawns[i] do
+         i:=random(r_spawn_n);
+         with r_spawn_l[i] do
          begin
             bot_mx:=spx;
             bot_my:=spy;
@@ -161,21 +194,21 @@ begin
    end;
 end;
 
-procedure _BotMove(aplayer:PTPlayer);
+procedure bot_Move(aplayer:PTPlayer);
 var px,py,pd:single;
 begin
    with aplayer^ do
    with room^ do
    begin
-      pd:=dist_r(x,y,bot_mx,bot_my);
+      pd:=point_dist(x,y,bot_mx,bot_my);
       if(pd>1.3)
-      then bot_md:=dir_turn(bot_md,p_dir(x,y,bot_mx,bot_my),random(10))
-      else bot_md:=dir_turn(bot_md,p_dir(x,y,bot_mx,bot_my),random(20));
+      then bot_md:=dir_turn(bot_md,point_dir(x,y,bot_mx,bot_my),random(10))
+      else bot_md:=dir_turn(bot_md,point_dir(x,y,bot_mx,bot_my),random(20));
       px:=x;
       py:=y;
 
       PlayerMove(room,@x,@y,bot_md,Player_BWidth,false);
-      bot_md:=p_dir(px,py,x,y);
+      bot_md:=point_dir(px,py,x,y);
 
       if(x=px)and(y=py)then
       begin
@@ -185,58 +218,61 @@ begin
    end;
 end;
 
-function _CheckWeapon(aplayer:PTPlayer;gn:byte):boolean;
-begin
-   _CheckWeapon:=false;
-   with aplayer^ do
-    if(gn<=WeaponsN)then _CheckWeapon:=((gun_inv and gun_bit[gn])>0)and(ammo[gun_ammot[gn]]>=gun_ammog[gn]);
-end;
-
-function _BotWeaponN(aplayer:PTPlayer;dist:single):byte;
+function bot_PickWeaponN(aplayer:PTPlayer;dist:single):byte;
 const w_knife    = 0;
       w_pistol   = 1;
       w_mp40     = 2;
       w_chaingun = 3;
       w_rifle    = 4;
+      w_flame    = 5;
+      w_panzer   = 6;
+      w_tesla    = 7;
       knife_dist    = 0.7;
       chaingun_dist = 10;
+var i:byte;
+function CheckAndSetWeapon(gn:byte;gdist:single):boolean;
+begin
+   CheckAndSetWeapon:=false;
+   if(dist>gdist)then exit;
+   with aplayer^ do
+     if(gn<=WeaponsN)then
+     begin
+        CheckAndSetWeapon:=((gun_inv and gun_bit[gn])>0)and(ammo[gun_ammot[gn]]>=gun_ammog[gn]);
+        if(CheckAndSetWeapon)then bot_PickWeaponN:=gn;
+     end;
+end;
 begin
    with aplayer^ do
    begin
-      if(dist<=knife_dist)
-      then begin _BotWeaponN:=w_knife; exit; end
-      else
-        if(dist<chaingun_dist)and(_CheckWeapon(aplayer,w_chaingun))
-        then begin _BotWeaponN:=w_chaingun; exit; end
-        else
-          if(dist>=chaingun_dist)then
-           if(_CheckWeapon(aplayer,w_rifle))
-           then begin _BotWeaponN:=w_rifle; exit; end
-           else
-             if(_CheckWeapon(aplayer,w_mp40))
-             then begin _BotWeaponN:=w_mp40; exit; end;
+      bot_PickWeaponN:=255;
 
-      for _BotWeaponN:=WeaponsN downto 0 do
-       if(_CheckWeapon(aplayer,_BotWeaponN))then break;
+      if(not CheckAndSetWeapon(w_knife   ,knife_dist       ))then
+      if(not CheckAndSetWeapon(w_tesla   ,gun_dist[w_tesla]))then
+      if(not CheckAndSetWeapon(w_chaingun,chaingun_dist    ))then
+      if(not CheckAndSetWeapon(w_flame   ,chaingun_dist    ))then
+      if(not CheckAndSetWeapon(w_rifle   ,100              ))then
+      if(not CheckAndSetWeapon(w_mp40    ,100              ))then
+       for i:=WeaponsN downto 0 do
+        if(CheckAndSetWeapon(100,i))then break;
    end;
 end;
 
-procedure _BotAttackPoint(aplayer:PTPlayer;ex,ey:single);
+procedure bot_AttackToPoint(aplayer:PTPlayer;ex,ey:single);
 const bot_att_disp = 8;
-var endir,d:single;
+var endir,d :single;
     gun_prev:byte;
 begin
    with aplayer^ do
    begin
-      d    :=dist_r(x,y,ex,ey);
-      //if(_players[bot_enemy].bot)
-      //then endir:=p_dir (x,y,ex,ey)
+      d    :=point_dist(x,y,ex,ey);
+      //if(g_players[bot_enemy].bot)
+      //then endir:=point_dir (x,y,ex,ey)
       //else
-      endir:=p_dir (x,y,ex,ey)-random(bot_att_disp)+random(bot_att_disp);
-      dir:=dir_turn(dir,endir,random(bot_att_disp));
+      endir:=point_dir (x,y,ex,ey)-random(bot_att_disp)+random(bot_att_disp);
+      dir  :=dir_turn(dir,endir,random(bot_att_disp));
 
       gun_prev:=gun_curr;
-      gun_next:=_BotWeaponN(aplayer,d);
+      gun_next:=bot_PickWeaponN(aplayer,d);
 
       if(gun_next=gun_curr)and(gun_prev=gun_curr)then
        if(abs(dir_diff(endir,dir))<bot_att_disp)or(d<1)then
@@ -244,15 +280,14 @@ begin
    end
 end;
 
-procedure _BotAttack(aplayer:PTPlayer);
+procedure bot_Attack(aplayer:PTPlayer);
 begin
    with aplayer^ do
-   begin
-      _BotAttackPoint(aplayer,_players[bot_enemy].x,_players[bot_enemy].y);
-   end;
+   bot_AttackToPoint(aplayer,g_players[bot_enemy].x,
+                             g_players[bot_enemy].y);
 end;
 
-procedure BotThink(aplayer:PTPlayer);
+procedure bot_Think(aplayer:PTPlayer);
 begin
    with aplayer^ do
    with room^ do
@@ -263,27 +298,28 @@ ps_spec: if(cur_players>0)then PlayerSpecJoin(aplayer);
 ps_dead: PlayerRespawn(aplayer,false);
 ps_walk,
 ps_attk: begin
-            if(bot_tpause>0)
-            then bot_tpause-=1
+            if(bot_reaction>0)
+            then bot_reaction-=1
             else
             begin
-               _BotTarget(aplayer);
-               bot_tpause:=fr_fps;
+               bot_PickTarget(aplayer);
+               bot_reaction:=fr_fpsx1;
             end;
 
-            _BotMove(aplayer);
-            if(_BotPlayerEnemy(aplayer))
-            then _BotAttack(aplayer)
-            else if(gun_rld=0)then dir:=dir_turn(dir,bot_md,5);
+            bot_Move(aplayer);
+            if(bot_PickEnemy(aplayer))
+            then //bot_Attack(aplayer)
+            else
+              if(gun_rld=0)then dir:=dir_turn(dir,bot_md,5);
          end;
    end;
 end;
 
-procedure BotControl(aroom:PTRoom);
+procedure bot_RoomCountControl(aroom:PTRoom);
 var t:byte;
 begin
    with aroom^ do
     if(cur_clients<max_clients)then
      for t:=0 to MaxTeamsI do
-      if(bot_curt[t]<bot_maxt[t])then net_NewPlayer(0,0,aroom^.rnum,'BOT '+str_teams[t]+' #'+b2s(bot_curt[t]+1),t,true,false);
+      if(bot_curt[t]<bot_maxt[t])then net_NewPlayer(0,0,aroom^.rnum,str_BotBaseName+str_teams[t]+' #'+b2s(bot_curt[t]+1),t,true,false);
 end;

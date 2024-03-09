@@ -1,35 +1,18 @@
 
 procedure map_AddDefault;
-const DefMapBuf  : shortstring =
-'444444AAAAAA'+
-' ACAAmBBmAACA'+#13+
-'E4    36    4N'+#13+
-'H b3E     1b O'+#13+
-'E 1<E    A^3 N'+#13+
-'E  EF    BAA N'+#13+
-'l    5  5    o'+#13+
-'F6    28     P'+#13+
-'F3    09    6P'+#13+
-'l    5  5   3o'+#13+
-'E IIK    PN  N'+#13+
-'E 3.I    N>1 N'+#13+
-'H b1     N3b O'+#13+
-'E4    63    4N'+#13+
-' IJIIsKKsIIJI'+#0;
-var iw,sl:byte;
 begin
-   if(_mapn=0)then
+   if(g_mapn=0)then
    begin
-      _mapn+=1;
-      setlength(_maps,_mapn);
+      g_mapn+=1;
+      setlength(g_maps,g_mapn);
    end;
 
-   sl:=length(DefMapBuf);
-   with _maps[0] do
+   with g_maps[0] do
    begin
-      mname:='.default';
+      mname:='sd1.default';
       FillChar(mbuff,SizeOf(mbuff),#0);
-      for iw:=1 to sl do mbuff[iw]:=DefMapBuf[iw];
+
+      move(DefaultMap^,mbuff,length(DefaultMap));
    end;
 end;
 
@@ -52,7 +35,7 @@ begin
          exit;
       end;
 
-      AddMap(RMExt(fn));
+      map_new(str_RemoveExt(fn));
 
       t:=0;
       w:=0;
@@ -83,7 +66,7 @@ begin
             if(sl<map_mw)then
             begin
                sl+=1;
-               s :=s+#13;
+               s :=s+str_NewLineChar;
             end;
          end;
 
@@ -92,7 +75,7 @@ begin
            if(w<MaxMapBuffer)then
            begin
               w+=1;
-              _maps[_mapn-1].mbuff[w]:=s[i];
+              g_maps[g_mapn-1].mbuff[w]:=s[i];
            end;
 
          if(IOResult<>0)then break;
@@ -100,7 +83,7 @@ begin
 
       close(f);
 
-      if(w<MaxMapBuffer)then _maps[_mapn-1].mbuff[w]:=#0;
+      if(w<MaxMapBuffer)then g_maps[g_mapn-1].mbuff[w]:=#0;
    end;
 end;
 
@@ -108,16 +91,16 @@ procedure map_LoadAll;
 var Info : TSearchRec;
        s : shortstring;
 begin
-   _mapn:=0;
-   setlength(_maps,0);
+   g_mapn:=0;
+   setlength(g_maps,0);
 
    map_AddDefault;
 
    if(FindFirst(str_mapfolder+'*'+str_mapext,faReadonly,info)=0)then
     repeat
        s:=info.Name;
-       if(s<>'')then map_AddFromFile(s);
-       if(_mapn>=65534)then break;
+       if(length(s)>0)then map_AddFromFile(s);
+       if(g_mapn>=65534)then break;
     until (FindNext(info)<>0);
    FindClose(info);
 end;
@@ -127,9 +110,9 @@ var f:text;
     s:shortstring;
     p,n:word;
 begin
-   if(mi>=_mapn)then exit;
+   if(mi>=g_mapn)then exit;
 
-   with _maps[mi] do
+   with g_maps[mi] do
    begin
       s:=str_mapfolder+mname+str_mapext;
 
@@ -154,9 +137,9 @@ begin
          end
          else
          begin
-            if(mbuff[p]=#13)or(n=map_miw)then
+            if(mbuff[p]=str_NewLineChar)or(n=map_miw)then
             begin
-               if(mbuff[p]<>#13)then write(f,mbuff[p]);
+               if(mbuff[p]<>str_NewLineChar)then write(f,mbuff[p]);
                writeln(f);
                n:=0;
             end

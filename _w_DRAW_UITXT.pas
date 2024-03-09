@@ -4,13 +4,14 @@ function logID2Color(lid:byte):PTColor;
 begin
    logID2Color:=@c_white;
    case lid of
-   log_common  : ;
-   log_chat    : logID2Color:=@c_ltlime;
+   log_common     : ;
+   log_chat       : logID2Color:=@c_ltlime;
    log_winner,
-   log_endgame : logID2Color:=@c_yellow;
-   log_map     : logID2Color:=@c_orange;
-   log_local   : logID2Color:=@c_gray;
-   log_roomdata: logID2Color:=@c_aqua;
+   log_endgame    : logID2Color:=@c_yellow;
+   log_suddendeath: logID2Color:=@c_red;
+   log_map        : logID2Color:=@c_orange;
+   log_local      : logID2Color:=@c_gray;
+   log_roomdata   : logID2Color:=@c_aqua;
    end;
 end;
 
@@ -67,12 +68,13 @@ begin
    setlength(hud_text ,hud_textn);
    setlength(hud_textc,hud_textn);
 
-   w:=_room^.log_i;
+   w:=sv_clroom^.log_i;
    if(onlylastlog>0)then
      while(onlylastlog>0)do
      begin
-        with _room^ do
-        _addStr(log_l[w],logID2Color(log_t[w]));
+        with sv_clroom^ do
+          with log_l[w] do
+           _addStr(data_string,logID2Color(data_id));
 
         onlylastlog-=1;
         if(w>0)
@@ -85,8 +87,9 @@ begin
       begin
          w+=1;
          if(w>MaxRoomLog)then w:=0;
-         with _room^ do
-         _addStr(log_l[w],logID2Color(log_t[w]));
+         with sv_clroom^ do
+           with log_l[w] do
+             _addStr(data_string,logID2Color(data_id));
       end;
       _addStr(console_str+'|',logID2Color(log_chat));
    end;
@@ -143,8 +146,8 @@ begin
 end;
 begin
    player_team:=255;
-   if(RoomFlag(_room,sv_g_teams))and(cl_playeri<=MaxPlayers)then
-    with _players[cam_pl] do
+   if(Room_CheckFlag(sv_clroom,sv_g_teams))and(cl_playeri<=MaxPlayers)then
+    with g_players[cam_pl] do
      if(state>ps_spec)
      then player_team:=team
      else player_team:=254;
@@ -154,7 +157,7 @@ begin
 
    for p:=0 to MaxPlayers do
    begin
-      _pl:=@_players[p];
+      _pl:=@g_players[p];
       if(_pl^.state>ps_spec)then
       begin
          player_listn+=1;
@@ -187,7 +190,7 @@ begin
    dx:=scboard_sx;
    dy:=scboard_sy;
 
-   with _room^ do
+   with sv_clroom^ do
    begin
       color:=@c_ltred;
 
@@ -201,7 +204,7 @@ begin
       dy+=font_lh;
 
       if(time_scorepause>0)then
-      draw_line(dx,dy,scboard_btw,str_sb_resettime,b2s((time_scorepause div fr_fps)+1),color);
+      draw_line(dx,dy,scboard_btw,str_sb_resettime,b2s((time_scorepause div fr_fpsx1)+1),color);
 
       dy+=font_lh;
 

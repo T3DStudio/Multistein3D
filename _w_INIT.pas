@@ -1,13 +1,12 @@
 
 {$IFDEF FULLGAME}
-procedure G_Game;
+procedure G_ClientGame;
 begin
    net_clientcode;
 
-   with _room^ do
+   demo_Processing(sv_clroom);
+   with sv_clroom^ do
    begin
-      demo_Processing(_room);
-
       if(demo_cstate<>ds_read)then
       begin
          demo_cstate:=ds_none;
@@ -19,7 +18,7 @@ begin
       if(cl_net_cstat>0)or(demo_cstate=ds_read)
       then G_ClGame
       else
-        if(game_mode=gm_game)and(menu_locmatch)then G_SvGame;
+        if(cl_mode=clm_game)and(menu_locmatch)then G_SvGame;
    end;
 
    MakeCameraAndHud;
@@ -32,7 +31,7 @@ function G_InitVideo:boolean;
 begin
    G_InitVideo:=false;
 
-   new(_rect);
+   new(vid_rect);
 
    if (SDL_Init(SDL_INIT_VIDEO)<0) then
    begin
@@ -44,7 +43,7 @@ begin
 
    LoadGFX(false);
 
-   SDL_SetWindowGrab(_window,SDL_FALSE);
+   SDL_SetWindowGrab(vid_window,SDL_FALSE);
    SDL_ShowCursor(0);
    SDL_StartTextInput;
 
@@ -57,62 +56,100 @@ begin
    FillChar(cl_keys_t,SizeOf(cl_keys_t),0);
    FillChar(menu2actkeys,SizeOf(menu2actkeys),0);
 
-//             action    key type    key              menu item
-   _setKeyMenu(a_FW     ,kt_keyboard,SDLK_W          ,mi_forward    );
-   _setKeyMenu(a_BW     ,kt_keyboard,SDLK_S          ,mi_backward   );
-   _setKeyMenu(a_SL     ,kt_keyboard,SDLK_A          ,mi_strafeleft );
-   _setKeyMenu(a_SR     ,kt_keyboard,SDLK_D          ,mi_straferight);
-   _setKeyMenu(a_TL     ,kt_keyboard,SDLK_Left       ,mi_turnleft   );
-   _setKeyMenu(a_TR     ,kt_keyboard,SDLK_Right      ,mi_turnright  );
-   _setKeyMenu(a_A      ,kt_mouseb  ,SDL_BUTTON_LEFT ,mi_attack     );
-   _setKeyMenu(a_J      ,kt_keyboard,SDLK_G          ,mi_joinspec   );
-   _setKeyMenu(a_T      ,kt_keyboard,SDLK_T          ,mi_chat       );
-   _setKeyMenu(a_S      ,kt_keyboard,SDLK_TAB        ,mi_scores     );
-   _setKeyMenu(a_WN     ,kt_mousewh ,mw_down         ,mi_wnext      );
-   _setKeyMenu(a_WP     ,kt_mousewh ,mw_up           ,mi_wprev      );
-   _setKeyMenu(a_W1     ,kt_keyboard,SDLK_1          ,mi_w1         );
-   _setKeyMenu(a_W2     ,kt_keyboard,SDLK_2          ,mi_w2         );
-   _setKeyMenu(a_W3     ,kt_keyboard,SDLK_3          ,mi_w3         );
-   _setKeyMenu(a_W4     ,kt_keyboard,SDLK_4          ,mi_w4         );
-   _setKeyMenu(a_W5     ,kt_keyboard,SDLK_5          ,mi_w5         );
-   _setKeyMenu(a_SS     ,kt_keyboard,SDLK_PrintScreen,mi_screenshot );
-   _setKeyMenu(a_US     ,kt_keyboard,SDLK_E          ,mi_use        );
-   _setKeyMenu(a_CO     ,kt_keyboard,SDLK_BACKQUOTE  ,mi_console    );
-   _setKeyMenu(a_LN     ,kt_mousewh ,mw_down         ,mi_logsnext   );
-   _setKeyMenu(a_LP     ,kt_mousewh ,mw_up           ,mi_logsprev   );
-   _setKeyMenu(a_C1     ,kt_keyboard,SDLK_F1         ,mi_chat1_key  );
-   _setKeyMenu(a_C2     ,kt_keyboard,SDLK_F2         ,mi_chat2_key  );
-   _setKeyMenu(a_C3     ,kt_keyboard,SDLK_F3         ,mi_chat3_key  );
-   _setKeyMenu(a_C4     ,kt_keyboard,SDLK_F4         ,mi_chat4_key  );
-   _setKeyMenu(a_C5     ,kt_keyboard,SDLK_F5         ,mi_chat5_key  );
-   _setKeyMenu(a_dpause ,kt_keyboard,SDLK_Pause      ,mi_dpause     );
-   _setKeyMenu(a_dskipb ,kt_keyboard,SDLK_Left       ,mi_dskipb     );
-   _setKeyMenu(a_dskipf ,kt_keyboard,SDLK_Right      ,mi_dskipf     );
-   _setKeyMenu(a_votey  ,kt_keyboard,SDLK_PageUp     ,mi_votey      );
-   _setKeyMenu(a_voten  ,kt_keyboard,SDLK_PageDown   ,mi_voten      );
+//               action    key type     key               menu item       action group
+   cl_setKeyMenu(a_FW     ,kt_keyboard ,SDLK_W           ,mi_forward     ,0);
+   cl_setKeyMenu(a_BW     ,kt_keyboard ,SDLK_S           ,mi_backward    ,0);
+   cl_setKeyMenu(a_SL     ,kt_keyboard ,SDLK_A           ,mi_StrafeLeft  ,0);
+   cl_setKeyMenu(a_SR     ,kt_keyboard ,SDLK_D           ,mi_StrafeRight ,0);
+   cl_setKeyMenu(a_TL     ,kt_keyboard ,SDLK_Left        ,mi_turnleft    ,0);
+   cl_setKeyMenu(a_TR     ,kt_keyboard ,SDLK_Right       ,mi_turnright   ,0);
+   cl_setKeyMenu(a_A      ,kt_mouseb   ,SDL_BUTTON_LEFT  ,mi_attack      ,0);
+   cl_setKeyMenu(a_J      ,kt_keyboard ,SDLK_G           ,mi_JoinSpec    ,0);
+   cl_setKeyMenu(a_T      ,kt_keyboard ,SDLK_T           ,mi_chat        ,0);
+   cl_setKeyMenu(a_S      ,kt_keyboard ,SDLK_TAB         ,mi_scores      ,0);
+   cl_setKeyMenu(a_WN     ,kt_mousewh  ,mw_down          ,mi_wnext       ,0);
+   cl_setKeyMenu(a_WP     ,kt_mousewh  ,mw_up            ,mi_wprev       ,0);
+   cl_setKeyMenu(a_W1     ,kt_keyboard ,SDLK_1           ,mi_w1          ,0);
+   cl_setKeyMenu(a_W2     ,kt_keyboard ,SDLK_2           ,mi_w2          ,0);
+   cl_setKeyMenu(a_W3     ,kt_keyboard ,SDLK_3           ,mi_w3          ,0);
+   cl_setKeyMenu(a_W4     ,kt_keyboard ,SDLK_4           ,mi_w4          ,0);
+   cl_setKeyMenu(a_W5     ,kt_keyboard ,SDLK_5           ,mi_w5          ,0);
+   cl_setKeyMenu(a_W6     ,kt_keyboard ,SDLK_6           ,mi_w6          ,0);
+   cl_setKeyMenu(a_W7     ,kt_keyboard ,SDLK_7           ,mi_w7          ,0);
+   cl_setKeyMenu(a_W8     ,kt_keyboard ,SDLK_8           ,mi_w8          ,0);
+   cl_setKeyMenu(a_SS     ,kt_keyboard ,SDLK_PrintScreen ,mi_screenshot  ,0);
+   cl_setKeyMenu(a_US     ,kt_keyboard ,SDLK_E           ,mi_use         ,0);
+   cl_setKeyMenu(a_CO     ,kt_keyboard ,SDLK_BACKQUOTE   ,mi_console     ,0);
+   cl_setKeyMenu(a_LN     ,kt_mousewh  ,mw_down          ,mi_logsnext    ,2);
+   cl_setKeyMenu(a_LP     ,kt_mousewh  ,mw_up            ,mi_logsprev    ,2);
+   cl_setKeyMenu(a_C1     ,kt_keyboard ,SDLK_F1          ,mi_chat1_key   ,0);
+   cl_setKeyMenu(a_C2     ,kt_keyboard ,SDLK_F2          ,mi_chat2_key   ,0);
+   cl_setKeyMenu(a_C3     ,kt_keyboard ,SDLK_F3          ,mi_chat3_key   ,0);
+   cl_setKeyMenu(a_C4     ,kt_keyboard ,SDLK_F4          ,mi_chat4_key   ,0);
+   cl_setKeyMenu(a_C5     ,kt_keyboard ,SDLK_F5          ,mi_chat5_key   ,0);
+   cl_setKeyMenu(a_dpause ,kt_keyboard ,SDLK_Pause       ,mi_dpause      ,1);
+   cl_setKeyMenu(a_dskipb ,kt_keyboard ,SDLK_Left        ,mi_dskipb      ,1);
+   cl_setKeyMenu(a_dskipf ,kt_keyboard ,SDLK_Right       ,mi_dskipf      ,1);
+   cl_setKeyMenu(a_votey  ,kt_keyboard ,SDLK_PageUp      ,mi_votey       ,0);
+   cl_setKeyMenu(a_voten  ,kt_keyboard ,SDLK_PageDown    ,mi_voten       ,0);
 
-   _setKeyMenu(a_menu   ,kt_keyboard,SDLK_Escape     ,0);
-   _setKeyMenu(a_mup1   ,kt_keyboard,SDLk_Up         ,0);
-   _setKeyMenu(a_mdown1 ,kt_keyboard,SDLK_Down       ,0);
-   _setKeyMenu(a_mup2   ,kt_mousewh ,mw_up           ,0);
-   _setKeyMenu(a_mdown2 ,kt_mousewh ,mw_down         ,0);
-   _setKeyMenu(a_mleft  ,kt_keyboard,SDLK_Left       ,0);
-   _setKeyMenu(a_mright ,kt_keyboard,SDLK_Right      ,0);
-   _setKeyMenu(a_menter1,kt_keyboard,SDLK_Return     ,0);
-   _setKeyMenu(a_menter2,kt_mouseb  ,SDL_BUTTON_LEFT ,0);
-   _setKeyMenu(a_mdel   ,kt_keyboard,SDLK_Delete     ,0);
-   _setKeyMenu(a_mback  ,kt_keyboard,SDLK_Backspace  ,0);
-   _setKeyMenu(a_mpgup  ,kt_keyboard,SDLK_PageUp     ,0);
-   _setKeyMenu(a_mpgdn  ,kt_keyboard,SDLK_PageDown   ,0);
-   _setKeyMenu(a_mend   ,kt_keyboard,SDLK_End        ,0);
-   _setKeyMenu(a_mhome  ,kt_keyboard,SDLK_Home       ,0);
-   _setKeyMenu(a_paste  ,kt_keyboard,SDLK_V          ,0);
-   _setKeyMenu(a_tab    ,kt_keyboard,SDLK_Tab        ,0);
-   _setKeyMenu(a_ctrl   ,kt_keyboard,SDLK_LCtrl      ,0);
-   _setKeyMenu(a_alt    ,kt_keyboard,SDLK_LAlt       ,0);
-   _setKeyMenu(a_enter  ,kt_keyboard,SDLK_Return     ,0);
-   _setKeyMenu(a_tremove,kt_keyboard,SDLK_Backspace  ,0);
-   _setKeyMenu(a_mrb    ,kt_mouseb  ,SDL_BUTTON_Right,0);
+   cl_setKeyMenu(a_menu   ,kt_keyboard ,SDLK_Escape      ,0              ,9);
+   cl_setKeyMenu(a_mup1   ,kt_keyboard ,SDLk_Up          ,0              ,9);
+   cl_setKeyMenu(a_mdown1 ,kt_keyboard ,SDLK_Down        ,0              ,9);
+   cl_setKeyMenu(a_mup2   ,kt_mousewh  ,mw_up            ,0              ,9);
+   cl_setKeyMenu(a_mdown2 ,kt_mousewh  ,mw_down          ,0              ,9);
+   cl_setKeyMenu(a_mleft  ,kt_keyboard ,SDLK_Left        ,0              ,9);
+   cl_setKeyMenu(a_mright ,kt_keyboard ,SDLK_Right       ,0              ,9);
+   cl_setKeyMenu(a_menter1,kt_keyboard ,SDLK_Return      ,0              ,9);
+   cl_setKeyMenu(a_menter2,kt_mouseb   ,SDL_BUTTON_LEFT  ,0              ,9);
+   cl_setKeyMenu(a_mdel   ,kt_keyboard ,SDLK_Delete      ,0              ,9);
+   cl_setKeyMenu(a_mback  ,kt_keyboard ,SDLK_Backspace   ,0              ,9);
+   cl_setKeyMenu(a_mpgup  ,kt_keyboard ,SDLK_PageUp      ,0              ,9);
+   cl_setKeyMenu(a_mpgdn  ,kt_keyboard ,SDLK_PageDown    ,0              ,9);
+   cl_setKeyMenu(a_mend   ,kt_keyboard ,SDLK_End         ,0              ,9);
+   cl_setKeyMenu(a_mhome  ,kt_keyboard ,SDLK_Home        ,0              ,9);
+   cl_setKeyMenu(a_paste  ,kt_keyboard ,SDLK_V           ,0              ,9);
+   cl_setKeyMenu(a_tab    ,kt_keyboard ,SDLK_Tab         ,0              ,9);
+   cl_setKeyMenu(a_ctrl   ,kt_keyboard ,SDLK_LCtrl       ,0              ,9);
+   cl_setKeyMenu(a_alt    ,kt_keyboard ,SDLK_LAlt        ,0              ,9);
+   cl_setKeyMenu(a_enter  ,kt_keyboard ,SDLK_Return      ,0              ,9);
+   cl_setKeyMenu(a_tremove,kt_keyboard ,SDLK_Backspace   ,0              ,9);
+   cl_setKeyMenu(a_mrb    ,kt_mouseb   ,SDL_BUTTON_Right ,0              ,9);
+
+   cl_setKeyMenu(a_edit_left      ,kt_keyboard,SDLK_Left ,0              ,9);
+   cl_setKeyMenu(a_edit_right     ,kt_keyboard,SDLK_Right,0              ,9);
+   cl_setKeyMenu(a_edit_up        ,kt_keyboard,SDLK_Up   ,0              ,9);
+   cl_setKeyMenu(a_edit_down      ,kt_keyboard,SDLK_Down ,0              ,9);
+   cl_setKeyMenu(a_edit_mwheeldown,kt_mousewh ,mw_down   ,0              ,9);
+   cl_setKeyMenu(a_edit_mwheelup  ,kt_mousewh ,mw_up     ,0              ,9);
+   cl_setKeyMenu(a_edit_lmb       ,kt_mouseb  ,SDL_BUTTON_LEFT  ,0       ,9);
+   cl_setKeyMenu(a_edit_rmb       ,kt_mouseb  ,SDL_BUTTON_Right ,0       ,9);
+   cl_setKeyMenu(a_edit_mmb       ,kt_mouseb  ,SDL_BUTTON_Middle,0       ,9);
+end;
+
+procedure BuildMoveDirArray;
+var w,a,
+    s,d: boolean;
+    vx,
+    vy : integer;
+begin
+   FillByte(move_dir,sizeof(move_dir),0);
+   //mforw mback sleft sright
+   for w:=false to true do
+   for a:=false to true do
+   for s:=false to true do
+   for d:=false to true do
+   begin
+      vx:=0;
+      vy:=0;
+      if(w)then vx+=1;
+      if(s)then vx-=1;
+      if(d)then vy+=1;
+      if(a)then vy-=1;
+      if(vx=0)and(vy=0)
+      then move_dir[w,s,a,d]:=-1
+      else move_dir[w,s,a,d]:=round(point_dir(0,0,vx,vy));
+   end;
 end;
 
 {$ENDIF}
@@ -124,7 +161,7 @@ begin
 '-nosound'       : nosound:=true;
 {$ELSE}
 '-port'          : sv_net_port  :=s2w(v);
-'-roomscfg'      : sv_roomcfgfn :=v;
+'-roomscfg'      : sv_room_config_fname :=v;
 '-localadvertise': net_advertise:=s2i(v)<>0;
 {$ENDIF}
    end;
@@ -145,47 +182,32 @@ begin
    end;
 end;
 
-
 procedure G_Init;
 begin
-   _MC:=false;
+   sys_cycle:=false;
 
    StartParams;
 
    randomize;
 
-   new(_event);
+   new(sys_event);
 
-   if(InitNET=false)then exit;
+   if(not InitNET)then exit;
 
    map_LoadAll;
 
    {$IFDEF FULLGAME}
    sv_maxrooms:=1;
-   setlength(_rooms,sv_maxrooms);
-   _room:=@_rooms[0];
-   demo_init_data(_room);
-   //rooms_DefaultAll;
+   setlength(sv_rooms,sv_maxrooms);
+   sv_clroom:=@sv_rooms[0];
+   demo_init_data(sv_clroom);
 
    FillChar(console_history,SizeOf(console_history),0);
 
-   // W S A D  move dirs
-   FillByte(move_dir,sizeof(move_dir),0);
-   //       mforw mback sleft sright
-   move_dir[false,false,false,false]:=-1;
-   move_dir[true ,true ,false,false]:=-1;
-   move_dir[true ,true ,true ,true ]:=-1;
-   move_dir[false,false,true ,true ]:=-1;
-   move_dir[true ,false,false,false]:=0;
-   move_dir[false,true ,false,false]:=180;
-   move_dir[false,false,true ,false]:=270;
-   move_dir[false,false,false,true ]:=90;
-   move_dir[true ,false,true ,false]:=315;
-   move_dir[true ,false,false,true ]:=45;
-   move_dir[false,true ,false,true ]:=135;
-   move_dir[false,true ,true ,false]:=225;
+   BuildMoveDirArray;
 
    G_InitMenu;
+   editor_init;
 
    cfg_load;
 
@@ -198,36 +220,36 @@ begin
 
    cam_fov:=0.905;
 
-   sv_roomsinfoc:=0;
+   sv_roomsinfo_n:=0;
    setlength(sv_roomsinfo,0);
 
    ResetLocalGame;
-   demos_RemakeList;
+   demos_RemakeMenuList;
 
    if(not net_UpSocket(net_advertise_port0,true))then
    begin
-      _log_add(_room,log_local,str_AdvPortError);
+      room_log_add(sv_clroom,log_local,str_AdvPortError);
       if(not net_UpSocket(0,true))then exit;
    end;
 
    cl_net_stat:=str_nconnected;
 
    {$ELSE}
-   writeln(str_wcaption,' UDP port: ',sv_net_port);
+   writeln(str_wcaption,str_UDP_port,sv_net_port);
 
    if(not net_UpSocket(sv_net_port,true))then exit;
 
-   net_advertise_ip  :=ip2c('255.255.255.255');
+   net_advertise_ip  :=ip2c(net_advertise_ip0  );
    net_advertise_port:=swap(net_advertise_port0);
 
-   room_loadcfg(sv_roomcfgfn);
+   room_loadcfg(sv_room_config_fname);
    {$ENDIF}
 
    G_Data;
 
    fr_init;
 
-   _MC:=true;
+   sys_cycle:=true;
 end;
 
 

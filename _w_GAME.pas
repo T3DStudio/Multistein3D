@@ -5,7 +5,7 @@ procedure eff_Respawn(aplayer:PTPlayer);
 begin
    with aplayer^ do
    begin
-      _effadd(x,y,0,eid_spawn);
+      cl_eff_add(x,y,0,1,eid_spawn);
       PlaySoundSource(snd_spawn,nil,nil,x,y);
    end;
 end;
@@ -21,12 +21,18 @@ begin
    begin
       if(pnum=cl_playeri)
       then PlaySoundSource(snd_death      ,@vx,@vy,0,0)
-      else PlaySoundSource(snd_skinD[team],@vx,@vy,0,0);
-      _deadadd(vx,vy,team);
+      else
+        if(gids_death)
+        then PlaySoundSource(snd_meat       ,@vx,@vy,0,0)
+        else PlaySoundSource(snd_skinD[team],@vx,@vy,0,0);
+
+      if(gids_death)
+      then cl_dead_add(vx,vy,255 )
+      else cl_dead_add(vx,vy,team);
    end;
 end;
 
-procedure player_vvars(aplayer:PTPlayer);
+procedure player_cl_vars(aplayer:PTPlayer);
 begin
    with aplayer^ do
    if(pnum<>cl_playeri)then
@@ -54,7 +60,7 @@ begin
    end;
 end;
 
-procedure player_ClHits(aplayer:PTPlayer);
+procedure player_cl_Death(aplayer:PTPlayer);
 begin
    with aplayer^ do
    begin
@@ -68,11 +74,11 @@ begin
    end;
 end;
 
-procedure GameCMDChat(str:shortstring);
+procedure cl_ChatCommand(message:shortstring);
 begin
    if(menu_locmatch)
-   then _log_add(_room,log_local,str)
-   else net_sendchat(str);
+   then room_log_add(sv_clroom,log_chat,message)
+   else net_SendChat(message);
 end;
 
 {$ELSE}
@@ -130,9 +136,10 @@ begin
              end;
     ps_dead: begin
                 gun_rld  :=0;
-                pause_gun:=fr_hfps;
+                pause_gun:=fr_fpsh1;
                 {$IFDEF FULLGAME}
                 if(eff)then eff_Respawn(aplayer);
+                tesla_eff:=0;
                 {$ENDIF}
              end;
           end;
@@ -163,7 +170,7 @@ begin
     ps_walk: begin
                 {$IFDEF FULLGAME}
                 if(eff)then eff_death(aplayer);
-                if(pnum=cl_playeri)then cl_buffer_clear;
+                if(pnum=cl_playeri)then cl_buffer_xy_clear;
                 {$ENDIF}
                 death_time:=g_deathtime;
              end;
@@ -171,7 +178,7 @@ begin
           state-=1;
        end;
 
-      if(log)and(length(pstr)>0)then _log_add(room,log_common,name+str2+pstr);
+      if(log)and(length(pstr)>0)then room_log_add(room,log_common,name+str2+pstr);
    end;
 end;
 
@@ -195,13 +202,40 @@ begin
 end;
 
 function BWallHit(aroom:PTRoom;psx,psy,bsx,bsy:single):byte;
-
 begin
    BWallHit:=RoomCollisionXY(aroom,bsx,bsy,psx,psy);
 
    if(BWallHit<2)then
      if(abs(trunc(psx)-trunc(bsx))=1)
     and(abs(trunc(bsy)-trunc(psy))=1)then BWallHit:=max2(RoomCollisionXY(aroom,bsx,psy,psx,psy),RoomCollisionXY(aroom,psx,bsy,psx,psy));
+end;
+
+function collision_line(aroom:PTRoom;x0,y0,x1,y1:single):boolean;
+var px,py,sx,sy,d:single;
+begin
+   collision_line:=false;
+   if(x0=x1)and(y0=y1)then exit;
+
+   d:=point_dist(x0,y0,x1,y1)*2;
+   sx:=(x1-x0)/d;
+   sy:=(y1-y0)/d;
+
+   while true do
+   begin
+      px:=x0;
+      py:=y0;
+      x0:=x0+sx;
+      y0:=y0+sy;
+
+      d -=1;
+      if(d<=0)then break;
+
+      if(BWallHit(aroom,px,py,x0,y0)>1)then
+      begin
+         collision_line:=true;
+         break;
+      end;
+   end;
 end;
 
 procedure SetNewXY(aroom:PTRoom;cx,cy:psingle;nx,ny,width:single;m:byte);
@@ -244,10 +278,10 @@ var s:integer;
 begin
    with aplayer^ do
     with room^ do
-     if(r_spawnn>0)then
+     if(r_spawn_n>0)then
      begin
-        s:=random(r_spawnn);
-        with r_spawns[s] do
+        s:=random(r_spawn_n);
+        with r_spawn_l[s] do
         begin
            x   :=spx;
            y   :=spy;
@@ -276,54 +310,56 @@ begin
          gun_rld:=0;
          pl_state(aplayer,ps_walk,true);
 
-         if(RoomFlag(room,sv_g_instagib))then
+         if(Room_CheckFlag(room,sv_g_instagib))then
          begin
             hits    :=1;
-            ammo[2] :=1;
+            ammo[ammo_rifle] :=1;
             gun_inv :=gun_bit[4];
             gun_curr:=4;
          end
          else
          begin
-            if(RoomFlag(room,sv_g_itemrespawn))
-            then ammo[1]:=20
-            else ammo[1]:=60;
+            if(Room_CheckFlag(room,sv_g_itemrespawn))
+            then ammo[ammo_bullet]:=20
+            else ammo[ammo_bullet]:=60;
             hits    :=Player_max_hits;
             gun_inv :=gun_bit[0]+gun_bit[1];
             gun_curr:=1;
          end;
+         //ammo[ammo_flame]:=250;
          gun_next     :=gun_curr;
-         pause_resp   :=fr_hfps;
+         pause_resp   :=fr_fpsh1;
          PlayerRespawn:=true;
-
          bot_enemy    :=0;
       end;
 end;
 
 function PlayerDamage(aplayer:PTPlayer;damage:integer):boolean;
-var ard,htd:integer;
+var dmg_armor,
+    dmg_hits :integer;
 begin
    PlayerDamage:=false;
    with aplayer^ do
    if(room^.time_scorepause=0)then
    begin
-      htd:=damage div 3;
-      ard:=damage-htd;
+      dmg_hits :=damage div 3;
+      dmg_armor:=damage-dmg_hits;
 
-      armor-=ard;
+      armor-=dmg_armor;
       if(armor<0)then
       begin
-         htd+=abs(armor);
+         dmg_hits+=abs(armor);
          armor:=0;
       end;
 
-      hits-=htd;
+      hits-=dmg_hits;
       if(hits<=0)then
       begin
+         gids_death:=(hits<=gibs_hits);
          pl_state(aplayer,ps_dead,true);
          hits        :=0;
          PlayerDamage:=true;
-         pause_resp  :=fr_fps;
+         pause_resp  :=fr_fpsx1;
       end;
    end;
 end;
@@ -350,14 +386,14 @@ begin
          if(PlayerRespawn(aplayer,false))then
          begin
             frags:=0;
-            pause_spec:={$IFDEF FULLGAME}2{$ELSE}fr_fps{$ENDIF};
+            pause_spec:={$IFDEF FULLGAME}2{$ELSE}fr_fpsx1{$ENDIF};
          end;
      end
      else
      begin
         frags:=0;
         pl_state(aplayer,ps_spec,true);
-        pause_spec:={$IFDEF FULLGAME}2{$ELSE}fr_fps{$ENDIF};
+        pause_spec:={$IFDEF FULLGAME}2{$ELSE}fr_fpsx1{$ENDIF};
      end;
 end;
 
@@ -376,7 +412,7 @@ end;
 function CheckPHS(phs:PTPlayerHitSet;p:byte;byt,bit:pbyte):boolean;
 begin
    CheckPHS:=false;
-   if(p<=MaxPlayers)then
+   if(p<=MaxPlayers)and(phs<>nil)then
    begin
       byt^:=p div 8;
       bit^:=p mod 8;
@@ -401,9 +437,9 @@ begin
    {$ENDIF}
 
    for p:=0 to MaxPlayers do
-    if(CheckPHS(phs,p,@byt,@bit)=false)then
-     with _players[p] do
-      if(roomi=aroomi)and(state>ps_dead)then
+    with g_players[p] do
+     if(roomi=aroomi)and(state>ps_dead)then
+      if(not CheckPHS(phs,p,@byt,@bit))then
       begin
          {$IFNDEF FULLGAME}
          if(stepback=0)then
@@ -429,34 +465,33 @@ begin
          if(abs(px-_stx)<Player_BWidth)
         and(abs(py-_sty)<Player_BWidth)then
          begin
-            PlayerInPoint:=@_players[p];
-            SetBBit(@phs^[byt],bit,true);
+            PlayerInPoint:=@g_players[p];
+            if(phs<>nil)then SetBBit(@phs^[byt],bit,true);
             break;
          end;
       end;
 end;
 
-
-function IncFrags(aplayer:PTPlayer;teams,teammate:boolean):boolean;
+function IncFrags(aplayer:PTPlayer;TeamPlay,TeamKill:boolean):boolean;
 begin
    IncFrags:=false;
    with aplayer^ do
    begin
-      if(teams)and(teammate)
+      if(TeamPlay)and(TeamKill)
       then frags-=1
       else frags+=1;
 
       with room^ do
       begin
-         if(teams)and(teammate)
+         if(TeamPlay)and(TeamKill)
          then team_frags[team]-=1
          else team_frags[team]+=1;
 
          if(g_fraglimit>0)then
           if(frags>=g_fraglimit)
-          or((teams)and(team_frags[team]>=g_fraglimit))then
+          or((TeamPlay)and(team_frags[team]>=g_fraglimit))then
           begin
-             _log_add(room,log_endgame,str_fraglimithit);
+             room_log_add(room,log_endgame,str_fraglimithit);
              Room_Score(room);
              IncFrags:=true;
           end;
@@ -464,13 +499,18 @@ begin
    end;
 end;
 
-procedure Bullet(aplayer:PTPlayer;dist:single;disper,damage:integer;teams{$IFDEF FULLGAME},fakeshoot{$ENDIF},rail:boolean);
+procedure PlayerShot_Bullet(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshoot:boolean{$ENDIF});
 const init_dstep = 0.25;
 var d,sx,sy,
     dstep,
+max_dist,
     psx,psy,
     bsx,bsy :single;
-    whit
+damage,
+dispersion  :integer;
+teams,
+rail        :boolean;
+wall_hit
 {$IFDEF FULLGAME}
    ,bstep
 {$ENDIF}    :byte;
@@ -479,6 +519,12 @@ var d,sx,sy,
 begin
    with aplayer^ do
    begin
+      max_dist  :=gun_dist[gun_curr];
+      dispersion:=gun_disp[gun_curr];
+      damage    :=gun_dmg [gun_curr];
+      rail      :=gun_curr=4;
+      teams     :=Room_CheckFlag(room,sv_g_teams);
+
       bsx  := x;
       bsy  := y;
       dstep:= init_dstep;
@@ -489,8 +535,8 @@ begin
       FillChar(phs,SizeOf(phs),0);
       SetPHS(@phs,pnum);
 
-      if(disper>0)
-      then d :=(dir-random(disper)+random(disper))*degtorad
+      if(dispersion>1)
+      then d :=(dir-random(dispersion)+random(dispersion))*degtorad
       else d := dir*degtorad;
       sx:=cos(d)*dstep;
       sy:=sin(d)*dstep;
@@ -502,36 +548,36 @@ begin
 
          bsx +=sx;
          bsy +=sy;
-         dist-=dstep;
+         max_dist-=dstep;
 
-         whit:=BWallHit(room,psx,psy,bsx,bsy);
+         wall_hit:=BWallHit(room,psx,psy,bsx,bsy);
 
          {$IFDEF FULLGAME}
          if(bstep>0)then
-          if(whit>1)or(dist<=0)then
+          if(wall_hit>1)or(max_dist<=0)then
           begin
              bsx  -=sx;
              bsy  -=sy;
-             dist +=bstep;
+             max_dist +=bstep;
              sx   /=2;
              sy   /=2;
-             dist /=2;
+             max_dist /=2;
              bstep-=1;
              continue;
           end;
 
-         case whit of
+         case wall_hit of
       0,1: ;
         2: begin
-              _effadd(bsx-sx,bsy-sy,0,eid_puff);
+              cl_eff_add(bsx-sx,bsy-sy,0,1,eid_puff);
               break;
            end;
          else break; // wall with sky texture
          end;
          {$ELSE}
-         if(whit> 1)then break;
+         if(wall_hit> 1)then break;
          {$ENDIF}
-         if(dist<=0)then break;
+         if(max_dist<=0)then break;
 
          {$IFDEF FULLGAME}
          tpl:=PlayerInPoint(bsx,bsy,roomi,@phs);
@@ -544,13 +590,13 @@ begin
          if(tpl<>nil)then
          begin
             {$IFDEF FULLGAME}
-            _effadd(bsx,bsy,0,eid_blood);
+            cl_eff_add(bsx,bsy,0,1,eid_blood);
             if(not fakeshoot)then
             {$ENDIF}
-              if(not teams)or(RoomFlag(room,sv_g_teamdamage))or(team<>tpl^.team)then
+              if(not teams)or(Room_CheckFlag(room,sv_g_teamdamage))or(team<>tpl^.team)then
                if(PlayerDamage(tpl,damage))then
                begin
-                  _log_add(room,log_common,name+' > '+gun_str[gun_curr]+' > '+tpl^.name);
+                  room_log_add(room,log_common,name+' > '+gun_name[gun_curr]+' > '+tpl^.name);
                   if(IncFrags(aplayer,teams,team=tpl^.team))then exit;
                end;
 
@@ -558,6 +604,245 @@ begin
          end;
       end;
    end;
+end;
+
+procedure PlayerShot_Missile(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF});
+var mi : word;
+rdir   : single;
+begin
+   with aplayer^ do
+   begin
+      {$IFDEF FULLGAME}
+      if(fakeshot)then exit;
+      {$ENDIF}
+      case gun_btype[gun_curr] of
+gpt_fire,
+gpt_rocket: with room^ do
+            begin
+               if(r_missile_n>=MaxMissiles)then exit;
+               if(r_missile_n>0)then
+               begin
+                  mi:=0;
+                  while(mi<r_missile_n)do
+                  begin
+                     with r_missile_l[mi] do
+                      if(mtype=0)then break;
+                     mi+=1;
+                  end;
+                  if(mi=r_missile_n)then
+                  begin
+                     r_missile_n+=1;
+                     setlength(r_missile_l,r_missile_n);
+                  end;
+               end
+               else
+               begin
+                  r_missile_n+=1;
+                  setlength(r_missile_l,r_missile_n);
+                  mi:=0;
+               end;
+
+               with r_missile_l[mi] do
+               begin
+                  mx      :=x;
+                  my      :=y;
+                  mdir    :=dir_360(dir);
+                  mgun    :=gun_curr;
+                  mtype   :=gun_btype[gun_curr];
+                  mmaxdist:=gun_dist [gun_curr];
+                  mdamage :=gun_dmg  [gun_curr];
+                  mplayer :=aplayer^.pnum;
+
+                  case mtype of
+                  gpt_fire  : begin
+                                 mspeed  :=gpt_fire_speed;
+                                 msplashr:=gpt_fire_splashr;
+                              end;
+                  gpt_rocket: begin
+                                 mspeed  :=gpt_rocket_speed;
+                                 msplashr:=gpt_rocket_splashr;
+                              end;
+                  end;
+                  if(gun_disp[gun_curr]>1)
+                  then rdir :=(dir-random(gun_disp[gun_curr])+random(gun_disp[gun_curr]))*DEGTORAD
+                  else rdir := dir*DEGTORAD;
+                  mvx  :=cos(rdir)*mspeed;
+                  mvy  :=sin(rdir)*mspeed;
+               end;
+            end;
+      end;
+   end;
+end;
+
+function MissileProc(aroom:PTRoom;amissile:PTMissile):boolean;
+var px,
+    py,
+    ds  : single;
+    pl  : byte;
+damage  : integer;
+teams   : boolean;
+attacker: PTPlayer;
+function CheckCollision:boolean;
+var p:byte;
+begin
+   CheckCollision:=true;
+   with amissile^ do
+   begin
+      if(BWallHit(aroom,px,py,mx,my)>1)then
+      begin
+         mx-=mvx;
+         my-=mvy;
+         exit;
+      end;
+
+      for p:=0 to MaxPlayers do
+       with g_players[p] do
+        if(room=aroom)and(state>ps_dead)and(p<>mplayer)then
+         if (abs(mx-x)<=Player_BWidth)
+         and(abs(my-y)<=Player_BWidth)
+         then exit;
+   end;
+   CheckCollision:=false;
+end;
+begin
+   MissileProc:=false;
+   with amissile^ do
+   if(mtype>0)then
+   begin
+      if(mdamage<=0)then
+      begin
+         MissileProc:=true;
+         exit;
+      end;
+
+      px:=mx;
+      py:=my;
+      mx+=mvx;
+      my+=mvy;
+      mmaxdist-=mspeed;
+
+      if(CheckCollision)or(mmaxdist<=0)then
+      begin
+         attacker:=@g_players[mplayer];
+         with attacker^ do teams:=Room_CheckFlag(room,sv_g_teams);
+
+         MissileProc:=true;
+
+         for pl:=0 to MaxPlayers do
+          with g_players[pl] do
+           if(room=aroom)and(state>ps_dead)then
+           begin
+              if(msplashr>0)then
+              begin
+                 ds:=point_dist(mx,my,x,y)-Player_BWidth;
+                 if(ds>msplashr)then continue;
+                 if(collision_line(room,mx,my,x,y))then continue;
+                 if(ds<0)then ds:=0;
+                 damage:=round(mdamage*(1-(ds/msplashr)));
+              end
+              else
+              begin
+                 if(pl=mplayer)then continue;
+                 if(abs(mx-x)>Player_BWidth)
+                 or(abs(my-y)>Player_BWidth)
+                 then continue;
+                 damage:=mdamage;
+              end;
+
+              if(damage<=0)then continue;
+
+              if(not teams)
+              or(Room_CheckFlag(room,sv_g_teamdamage))
+              or(team<>attacker^.team)
+              or(pl=mplayer)then
+               if(PlayerDamage(@g_players[pl],damage))then
+               begin
+                  if(mgun<=WeaponsN)then
+                  begin
+                     if(pl=mplayer)
+                     then room_log_add(room,log_common,attacker^.name+str_fsplit+str_suicide+str_fsplit+gun_name[mgun])
+                     else room_log_add(room,log_common,attacker^.name+str_fsplit+gun_name[mgun]+str_fsplit+name);
+                  end
+                  else
+                    if(pl=mplayer)
+                    then room_log_add(room,log_common,attacker^.name+str_fsplit+str_suicide)
+                    else room_log_add(room,log_common,attacker^.name+str_fsplit+name       );
+                  if(IncFrags(attacker,teams or(pl=mplayer),team=attacker^.team))or(msplashr=0)then exit;
+               end;
+           end;
+      end;
+   end;
+end;
+
+procedure PlayerShot_Tesla(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF});
+var
+pl    : byte;
+ax,ay,
+bx,by,
+tdir,
+dist,
+fov     : single;
+b,i     : byte;
+stepback: word;
+damage  : integer;
+teams   : boolean;
+begin
+   with aplayer^ do
+   begin
+      fov     :=gun_disp[gun_curr];
+      dist    :=gun_dist[gun_curr];
+      damage  :=gun_dmg [gun_curr];
+      ax      :=x;
+      ay      :=y;
+      tdir    :=dir;
+      teams   :=Room_CheckFlag(room,sv_g_teams);
+      stepback:=round(ping/fr_RateTicks) ;
+   end;
+   for pl:=0 to MaxPlayers do
+    with g_players[pl] do
+     if(room=aplayer^.room)and(state>ps_dead)and(pl<>aplayer^.pnum)then
+     begin
+        {$IFNDEF FULLGAME}
+        if(aplayer^.antilag)and(stepback>0)then
+        begin
+           b:=ibuffer;
+           for i:=1 to stepback do
+            if(b=0)
+            then b:=MaxXYBuffer
+            else b-=1;
+           bx:=xbuffer[b];
+           by:=ybuffer[b];
+        end
+        else
+        begin
+           bx:=x;
+           by:=y;
+        end;
+        {$ELSE}
+        bx:=x;
+        by:=y;
+        {$ENDIF}
+
+        if(point_dist(ax,ay,bx,by)>dist)then continue;
+        if(abs(dir_diff(point_dir(ax,ay,bx,by),tdir))>fov)then continue;
+        if(collision_line(room,ax,ay,bx,by))then continue;
+
+        if(not teams)
+        or(Room_CheckFlag(room,sv_g_teamdamage))
+        or(team<>aplayer^.team)then
+        begin
+           {$IFDEF FULLGAME}
+           tesla_eff:=tesla_eff_time;
+           if(fakeshot)then continue;
+           {$ENDIF}
+           if(PlayerDamage(@g_players[pl],damage))then
+           begin
+              room_log_add(room,log_common,aplayer^.name+str_fsplit+gun_name[aplayer^.gun_curr]+str_fsplit+name);
+              if(IncFrags(aplayer,teams,team=aplayer^.team))then continue;
+           end;
+        end;
+     end;
+
 end;
 
 procedure PlayerShoot(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF});
@@ -568,9 +853,10 @@ begin
      begin
         gun_rld:=gun_reload[gun_curr];
         case gun_btype[gun_curr] of
-gpt_bullet:Bullet(aplayer,gun_dist[gun_curr],
-                          gun_disp[gun_curr],
-                          gun_dmg [gun_curr],RoomFlag(room,sv_g_teams){$IFDEF FULLGAME},fakeshot{$ENDIF},gun_curr=4);
+gpt_bullet : PlayerShot_Bullet (aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
+gpt_fire,
+gpt_rocket : PlayerShot_Missile(aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
+gpt_tesla  : PlayerShot_Tesla  (aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
         end;
         {$IFDEF FULLGAME}
         eff_Shoot(aplayer);
@@ -586,7 +872,7 @@ begin
      with room^ do
       if(time_scorepause<=0)then
       begin
-         if(RoomFlag(room,sv_g_instagib)=false)then
+         if(Room_CheckFlag(room,sv_g_instagib)=false)then
          begin
             if(ammo[gun_ammot[gun_curr]]<gun_ammog[gun_curr])then
             begin
@@ -636,7 +922,7 @@ begin
    pl_item:=false;
    with aplayer^ do
    with room^ do
-   with r_items[i] do
+   with r_item_l[i] do
    begin
       for w:=0 to AmmoTypesN do
       if item_proc(@iammo[w],@ammo[w],Player_max_ammo[w],c)then pl_item:=true;
@@ -645,28 +931,28 @@ begin
    end;
 end;
 
-function Inv2GunN(inv:byte):byte;
+function Inv2BestGunN(inv:byte):byte;
 var b:byte;
 begin
-   Inv2GunN:=255;
+   Inv2BestGunN:=255;
    for b:=7 downto 0 do
     if(inv and (1 shl b))>0 then
     begin
-       Inv2GunN:=b;
+       Inv2BestGunN:=b;
        break;
     end;
 end;
 
 procedure pl_items(aplayer:PTPlayer);
-const dammo: array[false..true] of integer = (4,1);
+const ammo_multiplier: array[false..true] of integer = (4,1);
 var i:word;
     w:byte;
 begin
    with aplayer^ do
     with room^ do
-     if(r_itemn>0)then
-      for i:=0 to r_itemn-1 do
-       with r_items[i] do
+     if(r_item_n>0)then
+      for i:=0 to r_item_n-1 do
+       with r_item_l[i] do
         if(irespt=0)then
          if(abs(ix-x)<Player_IWidth)
         and(abs(iy-y)<Player_IWidth)then
@@ -678,21 +964,21 @@ begin
                begin
                   gun_inv:=w;
 
-                  if(wswitch)then gun_next:=Inv2GunN(iweapon);
+                  if(wswitch)then gun_next:=Inv2BestGunN(iweapon);
 
-                  if(RoomFlag(room,sv_g_itemrespawn))and(RoomFlag(room,sv_g_weaponstay)=false)
+                  if(Room_CheckFlag(room,sv_g_itemrespawn))and(not Room_CheckFlag(room,sv_g_weaponstay))
                   then irespt:=irespm
                   else
                   begin
-                     pl_item(aplayer,i,dammo[RoomFlag(room,sv_g_itemrespawn)]);
+                     pl_item(aplayer,i,ammo_multiplier[Room_CheckFlag(room,sv_g_itemrespawn)]);
                      continue;
                   end;
                end
                else
-                 if(RoomFlag(room,sv_g_itemrespawn)=false)or(RoomFlag(room,sv_g_weaponstay))then continue;
+                 if(not Room_CheckFlag(room,sv_g_itemrespawn))or(Room_CheckFlag(room,sv_g_weaponstay))then continue;
             end;
 
-            if(pl_item(aplayer,i,dammo[RoomFlag(room,sv_g_itemrespawn)]))then irespt:=irespm;
+            if(pl_item(aplayer,i,ammo_multiplier[Room_CheckFlag(room,sv_g_itemrespawn)]))then irespt:=irespm;
          end;
 end;
 
@@ -702,7 +988,7 @@ player:PTPlayer;
 begin
    for p:=0 to MaxPlayers do
    begin
-      player:=@_players[p];
+      player:=@g_players[p];
       with player^ do
       if(state>ps_none)then
       begin
@@ -718,24 +1004,25 @@ begin
          if(gun_rld>0)then gun_rld-=1;
 
          if(bot)
-         then BotThink(player)
+         then bot_Think(player)
          {$IFNDEF FULLGAME}
          else
            if(room^.time_scorepause=0)then
            begin
               ttl+=1;
               if(ttl>=MaxPlayerTTL)then pl_state(player,ps_none,true);
-              if(net_moves<fr_2fps)then net_moves+=1;
+              if(net_moves<fr_fpsx2)then net_moves+=1;
            end;
          {$ELSE};
-         player_vvars(player);
+         player_cl_vars(player);
+         if(tesla_eff>0)then tesla_eff-=1;
          {$ENDIF};
 
          if(room^.time_scorepause=0)then
          begin
             if(state>ps_dead)then
             begin
-               if(RoomFlag(room,sv_g_instagib)=false)then pl_items(player);
+               if(Room_CheckFlag(room,sv_g_instagib)=false)then pl_items(player);
 
                PlayerWeaponSwitch(player);
             end;
@@ -747,7 +1034,7 @@ begin
              end;
          end;
          {$IFDEF FULLGAME}
-         if(state=ps_dead)then player_ClHits(player);
+         if(state=ps_dead)then player_cl_Death(player);
          {$ELSE}
          player_xybuffer(player);
          {$ENDIF}
@@ -755,7 +1042,7 @@ begin
    end;
 end;
 
-procedure NextWeapon(aplayer:PTPlayer;next:boolean);
+procedure pl_NextWeapon(aplayer:PTPlayer;next:boolean);
 var cw:byte;
 begin
    with aplayer^ do
@@ -789,9 +1076,12 @@ aid_w1,
 aid_w2,
 aid_w3,
 aid_w4,
-aid_w5       : gun_next:=aid-aid_w1;
-aid_wN       : NextWeapon(aplayer,true );
-aid_wP       : NextWeapon(aplayer,false);
+aid_w5,
+aid_w6,
+aid_w7,
+aid_w8       : gun_next:=aid-aid_w1;
+aid_wN       : pl_NextWeapon(aplayer,true );
+aid_wP       : pl_NextWeapon(aplayer,false);
 aid_specjoin : PlayerSpecJoin(aplayer);
 aid_attack   : if(state>ps_dead)
                then PlayerAttack(aplayer{$IFDEF FULLGAME},false{$ENDIF})
@@ -809,11 +1099,11 @@ begin
 
    for r:=0 to sv_maxrooms-1 do
    begin
-      room:=@_rooms[r];
+      room:=@sv_rooms[r];
       with room^ do
        if(time_scorepause=0)then
        begin
-          BotControl(room);
+          bot_RoomCountControl(room);
           room_Objects(room);
           room_Timer(room);
           {$IFDEF FULLGAME}
@@ -825,7 +1115,7 @@ begin
           time_scorepause-=1;
           if(time_scorepause=0)then
           begin
-             room_NextMap(room);
+             room_MapNext(room);
              time_tick:=0;
           end;
        end;
@@ -835,7 +1125,7 @@ begin
       with room^ do
       begin
          demo_cstate:=ds_none;
-         if(RoomFlag(room,sv_g_recording))then
+         if(Room_CheckFlag(room,sv_g_recording))then
            if(cur_clients>bot_cur)then demo_cstate:=ds_write;
       end;
       {$ENDIF}
@@ -853,7 +1143,7 @@ end;
 procedure PlayerBan(pid:byte;time:cardinal;admin:byte;comment:shortstring);
 begin
    if(pid<=MaxPlayers)and(pid<>admin)then
-   with _players[pid] do
+   with g_players[pid] do
    begin
       if(state=ps_none)then exit;
       if(bot)then
@@ -866,13 +1156,13 @@ begin
         if(length(comment)>0)
         then net_add_ban(ip,time,name+': '+comment)
         else net_add_ban(ip,time,name);
-      pl_state(@_players[pid],ps_none,true);
+      pl_state(@g_players[pid],ps_none,true);
    end;
 end;
 
 {$ENDIF}
 
-function GameParseCmd(cmdline:shortstring{$IFNDEF FULLGAME};pid:byte{$ENDIF}):boolean;
+function GameParseCommand(cmdline:shortstring{$IFNDEF FULLGAME};pid:byte{$ENDIF}):boolean;
 var i,l:byte;
    argl:array of shortstring;
    argn:byte;
@@ -886,7 +1176,7 @@ begin
      else sumargs:=sumargs+' '+argl[n];
 end;
 begin
-   GameParseCmd:=true;
+   GameParseCommand:=true;
    argn:=0;
    setlength(argl,argn);
 
@@ -919,50 +1209,50 @@ begin
 
    {$IFNDEF FULLGAME}
    if(pid<=MaxPlayers)then
-   with _players[pid] do
+   with g_players[pid] do
    with room^ do
    {$ENDIF}
    if(argn>0)then
    case argl[0] of
 {$IFDEF FULLGAME}
-'say'            : GameCMDChat(sumargs(1));
-'quit'           : _MC:=false;
+'say'            : cl_ChatCommand(sumargs(1));
+'quit'           : sys_cycle:=false;
 'rcon_password'  : if(argn>1)then
                    begin
                       player_rcon:=argl[1];
-                      GameParseCmd:=false;
+                      GameParseCommand:=false;
                    end;
-'maplistshow'    : GameParseCmd:=false;
+'maplistshow'    : GameParseCommand:=false;
 'showplayersid'  : show_player_id:=not show_player_id;
     else
        if(not menu_locmatch)or(cl_net_cstat>cstate_none)
-       then GameParseCmd:=false
+       then GameParseCommand:=false
        else
        case argl[0] of
-       cmd_map          : if(argn>1)then room_MapByName(_room,argl[1]);
-       cmd_mapnext      : room_NextMap(_room);
-       cmd_matchreset   : room_ResetMatch(_room);
-       cmd_matchend     : Room_Score(_room);
+       cmd_map          : if(argn>1)then room_MapByName(sv_clroom,argl[1]);
+       cmd_mapnext      : room_MapNext(sv_clroom);
+       cmd_matchreset   : room_MatchReset(sv_clroom);
+       cmd_matchend     : Room_Score(sv_clroom);
        'botadd'         : if(argn>1)
-                          then Room_AddBot(_room,argl[1])
-                          else Room_AddBot(_room,'');
+                          then Room_BotAdd(sv_clroom,argl[1])
+                          else Room_BotAdd(sv_clroom,'');
        'botkickall'     : if(argn>1)
-                          then Room_KickBots(_room,argl[1])
-                          else Room_KickBots(_room,'');
+                          then Room_BotKickAll(sv_clroom,argl[1])
+                          else Room_BotKickAll(sv_clroom,'');
        else
-       GameParseCmd:=false;
+       GameParseCommand:=false;
        end;
     end;
 {$ELSE}
 'callvote'       : if(argn>1)then
-                    if(not RoomFlag(room,sv_g_voting))
-                    then _log_add(room,log_local,str_novotes)
+                    if(not Room_CheckFlag(room,sv_g_voting))
+                    then room_log_add(room,log_local,str_novotes)
                     else
                      if(state=ps_spec)
-                     then _log_add(room,log_local,str_nospecvote)
+                     then room_log_add(room,log_local,str_nospecvote)
                      else
                        if(vote_time>0)
-                       then _log_add(room,log_local,name+str_votealready)
+                       then room_log_add(room,log_local,name+str_votealready)
                        else
                        begin
                           vote_cmd:='';
@@ -979,77 +1269,77 @@ begin
                           end;
                           if(length(vote_cmd)>0)then
                           begin
-                             _log_add(room,log_local,name+str_votecall+vote_cmd+' '+vote_arg);
-                             vote_time:=20*fr_fps;
+                             room_log_add(room,log_local,name+str_votecall+vote_cmd+' '+vote_arg);
+                             vote_time:=20*fr_fpsx1;
                              voteNoForAll(rnum);
                              vote:=vote_yes;
-                             _log_add(room,log_local,name+str_voteyes);
+                             room_log_add(room,log_local,name+str_voteyes);
                           end;
                        end;
 'yes'            : if(vote_time>0)then
                    begin
-                      if(vote<>vote_yes)then _log_add(room,log_local,name+str_voteyes);
+                      if(vote<>vote_yes)then room_log_add(room,log_local,name+str_voteyes);
                       vote:=vote_yes;
                    end;
 'no'             : if(vote_time>0)then
                    begin
-                      if(vote<>vote_no)then _log_add(room,log_local,name+str_voteno );
+                      if(vote<>vote_no)then room_log_add(room,log_local,name+str_voteno );
                       vote:=vote_no;
                    end;
-'rcon_password'  : if(sumargs(1)=rcon_pass)and(length(rcon_pass)>0)and(not rcon_access)then
+'rcon_password'  : if(sumargs(1)=sv_rcon_pass)and(length(sv_rcon_pass)>0)and(not rcon_access)then
                    begin
                       rcon_access:=true;
-                      _log_add(room,log_local,name+str_rconadmin);
+                      room_log_add(room,log_local,name+str_rconadmin);
                    end;
 'maplistshow'    : net_send_maplist(room,ip,port);
 'rcon' : if(argn>1)and(rcon_access)then
          case argl[1] of
          cmd_map       : if(argn>2)then room_MapByName(room,argl[2]);
-         cmd_mapnext   : room_NextMap(room);
-         cmd_matchreset: room_ResetMatch(room);
+         cmd_mapnext   : room_MapNext(room);
+         cmd_matchreset: room_MatchReset(room);
          cmd_matchend  : begin
-                          _log_add(room,log_endgame,str_timelimithit{$IFDEF FULLGAME},false{$ENDIF});
+                         room_log_add(room,log_endgame,str_timelimithit{$IFDEF FULLGAME},false{$ENDIF});
                          Room_Score(room);
                          end;
          'maplistadd'  : if(argn>2)then
                           for i:=2 to argn-1 do room_MapListAdd(room,argl[i]);
-         'maplistclear': begin maplistn:=1;setlength(maplist,maplistn);maplist[0]:=0; end;
+         'maplistclear': begin maplist_n:=1;setlength(maplist_l,maplist_n);maplist_l[0]:=0; end;
          'banadd'      : if(argn>2)then PlayerBan(s2b(argl[2]),$FFFFFFFF,pid,sumargs(3));
          'banremove'   : if(argn>2)then net_del_ban(s2w(argl[2]));
-         'kick'        : if(argn>2)then PlayerBan(s2b(argl[2]),fr_fps  ,pid,sumargs(3));
+         'kick'        : if(argn>2)then PlayerBan(s2b(argl[2]),fr_fpsx1,pid,sumargs(3));
          'botkickall'  : if(argn>2)
-                         then Room_KickBots(room,argl[2])
-                         else Room_KickBots(room,'');
+                         then Room_BotKickAll(room,argl[2])
+                         else Room_BotKickAll(room,'');
          'botadd'      : if(argn>2)
-                         then Room_AddBot(room,argl[2])
-                         else Room_AddBot(room,'');
+                         then Room_BotAdd(room,argl[2])
+                         else Room_BotAdd(room,'');
          'banshowall'  : net_send_bans(ip,port);
          'cancelvote'  : begin
-                         _log_add(room,log_local,name+str_votecancel);
+                         room_log_add(room,log_local,name+str_votecancel);
                          vote_time:=0;
                          end;
          else
             if(argn>2)then
             case argl[1] of
-            rcfg_roomname   : begin rname       :=argl[2];                         _log_add(room,log_roomdata,rcfg_roomname  +'='+rname              );end;
-            rcfg_maxplayers : begin max_players :=mm3w(2,s2b(argl[2]),MaxPlayers); _log_add(room,log_roomdata,rcfg_maxplayers+'='+b2s(max_players)   );end;
-            rcfg_maxclients : begin max_clients :=mm3w(2,s2b(argl[2]),MaxPlayers); _log_add(room,log_roomdata,rcfg_maxclients+'='+b2s(max_clients)   );end;
-            rcfg_fraglimit  : begin g_fraglimit :=mm3i(0,s2i(argl[2]),32000);      _log_add(room,log_roomdata,rcfg_fraglimit +'='+i2s(g_fraglimit)   );end;
-            rcfg_timelimit  : begin g_timelimit :=mm3w(0,s2b(argl[2]),60   );      _log_add(room,log_roomdata,rcfg_timelimit +'='+c2s(g_timelimit)   );end;
-            rcfg_flags      : begin g_flags     :=str2RFlags(argl[2]);             _log_add(room,log_roomdata,rcfg_flags     +'='+RFlags2str(g_flags));end;
-            rcfg_resettime  : g_scorepause      :=mm3w(5,s2b(argl[2]),60 )*fr_fps;
-            rcfg_deathtime  : g_deathtime       :=mm3w(0,s2b(argl[2]),60 )*fr_fps;
+            rcfg_roomname   : begin rname       :=argl[2];                         room_log_add(room,log_roomdata,rcfg_roomname  +'='+rname              );end;
+            rcfg_maxplayers : begin max_players :=mm3w(2,s2b(argl[2]),MaxPlayers); room_log_add(room,log_roomdata,rcfg_maxplayers+'='+b2s(max_players)   );end;
+            rcfg_maxclients : begin max_clients :=mm3w(2,s2b(argl[2]),MaxPlayers); room_log_add(room,log_roomdata,rcfg_maxclients+'='+b2s(max_clients)   );end;
+            rcfg_fraglimit  : begin g_fraglimit :=mm3i(0,s2i(argl[2]),32000);      room_log_add(room,log_roomdata,rcfg_fraglimit +'='+i2s(g_fraglimit)   );end;
+            rcfg_timelimit  : begin g_timelimit :=mm3w(0,s2b(argl[2]),60   );      room_log_add(room,log_roomdata,rcfg_timelimit +'='+c2s(g_timelimit)   );end;
+            rcfg_flags      : begin g_flags     :=str2RFlags(argl[2]);             room_log_add(room,log_roomdata,rcfg_flags     +'='+RFlags2str(g_flags));end;
+            rcfg_resettime  : g_scorepause      :=mm3w(5,s2b(argl[2]),60 )*fr_fpsx1;
+            rcfg_deathtime  : g_deathtime       :=mm3w(0,s2b(argl[2]),60 )*fr_fpsx1;
             rcfg_voteratio  : vote_ratio        :=mm3w(0,s2b(argl[2]),100)/100;
             end;
          end;
    else
-      GameParseCmd:=false;
+      GameParseCommand:=false;
    end;
   {$ENDIF}
 end;
 
 procedure G_Data;
-const gun_min_rld = fr_fps div 5;
+const gun_min_rld = fr_fpsx1 div 5;
 var g,s:byte;
 begin
    for g:=0 to WeaponsN do
@@ -1061,6 +1351,7 @@ begin
       then gun_reload_s[g]:=gun_reload[g]-s
       else gun_reload_s[g]:=0;
    end;
+   bot_Init;
 end;
 
 {$IFDEF FULLGAME}
@@ -1180,19 +1471,19 @@ begin
    begin
       if(length(ccmdp[0])>0)then
       begin
-         _log_add(_room,log_local,'---------------');
-         _log_add(_room,log_local,ccmds[0]+' '+ccmdp[0]);
+         room_log_add(sv_clroom,log_local,'---------------');
+         room_log_add(sv_clroom,log_local,ccmds[0]+' '+ccmdp[0]);
          console_str:=ccmds[0]+' ';
       end
       else console_str:=ccmds[0];
    end
    else
    begin
-      if(n>0)then _log_add(_room,log_local,'---------------');
+      if(n>0)then room_log_add(sv_clroom,log_local,'---------------');
       while(n>0)do
       begin
          n-=1;
-         _log_add(_room,log_local,ccmds[n]+' '+ccmdp[n]);
+         room_log_add(sv_clroom,log_local,ccmds[n]+' '+ccmdp[n]);
       end;
    end;
 end;
@@ -1202,14 +1493,14 @@ procedure StartLocalGame;
 var lplayer:PTPlayer;
 begin
    ResetLocalGame;
-   demo_break(_room,'');
-   _room^.demo_cstate:=ds_none;
+   demo_break(sv_clroom,'');
+   sv_clroom^.demo_cstate:=ds_none;
    if(menu_locmatch)
    then menu_locmatch:=false
    else
    begin
-      map_LoadToRoomByN(_room,menu_bmm);
-      with _room^ do
+      map_LoadToRoomByN(sv_clroom,menu_bmm);
+      with sv_clroom^ do
       begin
          g_flags      :=0;
          if(menu_linsta)then g_flags:=g_flags or sv_g_instagib;
@@ -1220,15 +1511,15 @@ begin
          g_fraglimit  :=menu_lslimit;
          g_timelimit  :=menu_ltlimit;
          bot_maxt     :=menu_lbots;
-         mapi         :=menu_bmm;
-         maplistn     :=1;
-         setlength(maplist,maplistn);
-         maplist[0]   :=menu_bmm;
+         map_cur         :=menu_bmm;
+         maplist_n     :=1;
+         setlength(maplist_l,maplist_n);
+         maplist_l[0]   :=menu_bmm;
       end;
 
-      cl_playeri:=net_NewPlayer(0,0,_room^.rnum,player_name,player_team,false,false);
+      cl_playeri:=net_NewPlayer(0,0,sv_clroom^.rnum,player_name,player_team,false,false);
       cam_pl    :=cl_playeri;
-      lplayer   :=@_players[cl_playeri];
+      lplayer   :=@g_players[cl_playeri];
 
       pl_state(lplayer,ps_spec,true);
       PlayerMoveToSpawn(lplayer);
@@ -1241,7 +1532,7 @@ procedure MakeCameraAndHud;
 var cdir:single;
     i:byte;
 begin
-   with _players[cam_pl] do
+   with g_players[cam_pl] do
    begin
       cam_dir:=vdir;
       cam_x  :=vx;
@@ -1262,33 +1553,40 @@ begin
          end;
          if(hits>hud_hits)then
          begin
-            hud_mask_t:=fr_hfps;
+            hud_mask_t:=fr_fpsh1;
             with hud_mask do begin r:=0;  g:=0;  b:=255;end;
             PlaySoundSource(snd_health,@cam_x,@cam_y,0,0);
          end;
          if(armor>hud_armor)then
          begin
-            hud_mask_t:=fr_hfps;
+            hud_mask_t:=fr_fpsh1;
             with hud_mask do begin r:=0;  g:=255;b:=0  ;end;
             PlaySoundSource(snd_armor,@cam_x,@cam_y,0,0);
          end;
          for i:=0 to AmmoTypesN do
          if(ammo[i]>hud_ammo[i])then
          begin
-            hud_mask_t:=fr_hfps;
+            hud_mask_t:=fr_fpsh1;
             with hud_mask do begin r:=255;g:=255;b:=0  ;end;
             PlaySoundSource(snd_ammo,@cam_x,@cam_y,0,0);
          end;
 
          if(hud_hits>0)and(hits>0)then
           if(cam_pl=cl_playeri)and(hud_guni<>gun_inv)then
-           if((hud_guni and gun_bit[3])=0)
-           and((gun_inv and gun_bit[3])>0)then
+           if(((hud_guni and gun_bit[3])=0)and((gun_inv and gun_bit[3])>0))
+           or(((hud_guni and gun_bit[6])=0)and((gun_inv and gun_bit[6])>0))
+           or(((hud_guni and gun_bit[7])=0)and((gun_inv and gun_bit[7])>0))then
            begin
-              hud_biggun:=fr_fps;
+              hud_biggun:=fr_fpsx1;
               PlaySoundSource(snd_chain,@cam_x,@cam_y,0,0);
            end
            else PlaySoundSource(snd_weapon,@cam_x,@cam_y,0,0);
+
+         if(gun_curr=7)and(gun_reload[gun_curr]=(gun_rld+1))then
+         begin
+            hud_mask_t:=fr_fpsh1;
+            with hud_mask do begin r:=128;g:=128;b:=255;end;
+         end;
       end
       else
         if(state=ps_dead)then
@@ -1326,7 +1624,7 @@ begin
         else cam_pl:=MaxPlayers;
 
       if(cam_pl=cl_playeri)
-      or(_players[cam_pl].state>ps_spec)then break;
+      or(g_players[cam_pl].state>ps_spec)then break;
    end;
 end;
 
@@ -1342,7 +1640,7 @@ begin
 
    if(cl_playeri>MaxPlayers)then exit;
 
-   _ip:=@_players[cl_playeri];
+   _ip:=@g_players[cl_playeri];
    _ir:=_ip^.room;
 
    if(_ir=nil)then exit;
@@ -1369,6 +1667,9 @@ begin
    if(cl_acts[a_w3]=1)then cl_action:=aid_w3;
    if(cl_acts[a_w4]=1)then cl_action:=aid_w4;
    if(cl_acts[a_w5]=1)then cl_action:=aid_w5;
+   if(cl_acts[a_w6]=1)then cl_action:=aid_w6;
+   if(cl_acts[a_w7]=1)then cl_action:=aid_w7;
+   if(cl_acts[a_w8]=1)then cl_action:=aid_w8;
    if(cl_acts[a_J ]=1)then cl_action:=aid_specjoin;
    end;
 
@@ -1377,7 +1678,7 @@ begin
    begin
       if(state=ps_spec)or(state>ps_dead)then
       begin
-         vdir:=d360(vdir+cam_turn);
+         vdir:=dir_360(vdir+cam_turn);
 
          _mdir:=move_dir[cl_acts[a_FW]>0,
                          cl_acts[a_BW]>0,
@@ -1393,7 +1694,7 @@ begin
       if(state>ps_dead)and(cl_action=aid_attack)and(hud_noammoclk=0)and(gun_rld=0)then
        if(ammo[gun_ammot[gun_curr]]<gun_ammog[gun_curr])then
        begin
-          hud_noammoclk:=fr_hfps;
+          hud_noammoclk:=fr_fpsh1;
           PlaySoundSource(snd_noammo,@cam_x,@cam_y,0,0);
        end;
 
@@ -1432,34 +1733,35 @@ var p:byte;
   _pi:PTPlayer;
 begin
    for p:=0 to MaxPlayers do
-    with _players[p] do
+    with g_players[p] do
      if(state>ps_none)then
      begin
-        _pi:=@_players[p];
-        player_vvars(_pi);
+        _pi:=@g_players[p];
+        player_cl_vars(_pi);
         if(gun_rld  >0)then gun_rld  -=1;
         if(pause_gun>0)then pause_gun-=1;
+        if(tesla_eff>0)then tesla_eff-=1;
         if(state=ps_attk)then
         begin
            if(pnum<>cl_playeri)
-           or((pnum=cl_playeri)and(not player_antilag))then
-           PlayerShoot(_pi,true);
+           or((pnum=cl_playeri)and(not player_antilag))
+           then PlayerShoot(_pi,true);
            state:=ps_walk;
         end;
-        if(state=ps_dead)then player_ClHits(_pi);
+        if(state=ps_dead)then player_cl_Death(_pi);
      end;
 
-   with _room^ do
+   with sv_clroom^ do
     if(time_scorepause=0)then animation_tick+=1;
 end;
 
 procedure menu_reload_maps;
 var curmap: shortstring;
 begin
-   curmap:=_maps[menu_bmm].mname;
+   curmap:=g_maps[menu_bmm].mname;
    map_LoadAll;
-   menu_bmm:=mname2n(curmap);
-   if(menu_bmm=65535)then menu_bmm:=0;
+   menu_bmm:=map_name2n(curmap);
+   if(menu_bmm=menu_bmm.MaxValue)then menu_bmm:=0;
 end;
 
 {$ELSE}

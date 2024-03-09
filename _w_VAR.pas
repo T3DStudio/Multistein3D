@@ -2,23 +2,21 @@
 
 var
 
-_event            : PSDl_Event = nil;
-
-_MC               : boolean = false;
+sys_event         : PSDl_Event = nil;
+sys_cycle         : boolean = false;
 
 net_socket        : PUDPSocket = nil;
 net_socket_port   : word = 0;
 net_buffer        : PUDPpacket = nil;
-net_bufpos        : LongInt = 0;
+net_buffer_pos    : LongInt = 0;
 
 sv_name           : shortstring = '';
 sv_maxrooms       : byte        = 1;
-_rooms            : array of TRoom;
+sv_rooms          : array of TRoom;
 
-_players          : array[0..MaxPlayers] of TPlayer;
-
-_maps             : array of TMap;
-_mapn             : word = 0;
+g_players         : array[0..MaxPlayers] of TPlayer;
+g_maps            : array of TMap;
+g_mapn            : word = 0;
 
 gun_reload_s      : array[0..WeaponsN] of byte;
 
@@ -56,28 +54,26 @@ server_ping_r     : boolean = false;
 server_ping       : cardinal = 0;
 server_ttl        : cardinal = 0;
 
-_room             : PTRoom;
+sv_clroom         : PTRoom;
 
 gun_ganim         : array[0..WeaponsN] of byte;
 gun_sanim         : array[0..WeaponsN] of byte;
 
-_window           : PSDL_Window = nil;
-_renderer         : PSDL_Renderer = nil;
-_dtimage          : TImage;
-_rect             : PSDL_rect;
-_rctexture        : pSDL_Texture = nil;
+vid_window        : PSDL_Window = nil;
+vid_renderer      : PSDL_Renderer = nil;
+vid_dtimage       : TImage;
+vid_rect          : PSDL_rect;
+vid_rctexture     : pSDL_Texture = nil;
 
 show_player_id    : boolean = false;
 
 vid_fullscreen    : boolean = false;
 vid_rc_newz       : boolean = false;
-//vid_agraph_dir    : shortstring = 'graphic_original';
-//vid_agraph_fromcfg: boolean = true;
-vid_agraph_dirl   : array of shortstring;
-vid_agraph_dirn   : byte = 0;
-vid_agraph_dirs   : byte = 0;
+vid_agraph_dir_l  : array of shortstring;
+vid_agraph_dir_n  : byte = 0;
+vid_agraph_dir_sel: byte = 0;
 
-game_mode         : byte = 1;
+cl_mode           : byte = 1;
 
 demo_skip         : word = 0;
 demo_play_pause   : boolean = false;
@@ -121,6 +117,7 @@ move_dir          : array[false..true,false..true,false..true,false..true] of in
 
 net_period        : byte = 0;
 
+cl_group          : array[byte] of byte;
 cl_keys_t         : array[byte] of byte;       // type (keyboard, mouse, mousewheel)
 cl_keys           : array[byte] of cardinal;
 cl_acts           : array[byte] of integer;
@@ -138,16 +135,16 @@ cl_net_mpartn     : byte = 0;
 cl_net_mapi       : word = 65535;
 cl_net_maprq_t    : byte = 0;
 
-cl_buffer_i       : byte;
-cl_buffer_x,
-cl_buffer_y       : array[0..cl_buffer_n] of single;
+cl_buffer_xy_i    : byte;
+cl_buffer_xy_x,
+cl_buffer_xy_y    : array[0..cl_buffer_xy_n] of single;
 
 sv_roomsinfo      : array of TRoomInfo;
-sv_roomsinfoc     : byte = 0;
+sv_roomsinfo_n    : byte = 0;
 sv_ping           : cardinal = 0;
 sv_ping_str       : shortstring = '--';
 
-player_name       : shortstring = 'WolfPlayer';
+player_name       : shortstring = str_DefaultPlayerName;
 player_team       : byte = 0;
 player_wswitch    : boolean = true;
 player_netupd     : boolean = false;
@@ -156,7 +153,7 @@ player_smooth     : boolean = true;
 player_chat_snd   : boolean = true;
 player_showfps    : boolean = true;
 player_showtime   : boolean = true;
-player_maxcorpses : integer = MaxVisSprites;
+player_maxcorpses : integer = rc_MaxEffects;
 player_rcon       : shortstring = '';
 
 player_chat1      : shortstring = ':D';
@@ -215,34 +212,40 @@ m_DRectY1,
 m_DRectW,
 m_DRectH          : integer;
 
-map_vspr          : array[1..MaxVisSprites] of PTBufSpr;
-map_vsprs         : integer = 0;
+map_rc_sprite_l   : array of PTBufSpr;
+map_rc_sprite_n   : integer = 0;
+map_leffs         : word    = 0;
 map_ldead         : integer = 0;
 map_deads,
-map_effs          : array[0..MaxVisSprites] of TEff;
+map_effs          : array[0..rc_MaxEffects] of TEff;
 
 keyboard_string   : shortstring = '';
 
 snd_volume        : byte = 50;
 snd_volume1       : single = 0.5;
 
-spr_wdt,
-spr_wd0           : array[0..1] of TRCWall;
-spr_wt            : array[0..1,'A'..'Z'] of TRCWall;
-spr_ps            : array[0..MaxTeamsI,0..SkinSprites] of TSprite;
-spr_dt            : array['a'..'z' ] of TSprite;
-spr_it            : array['0'..'9' ] of TSprite;
-spr_ef            : array[0..2,0..3] of TSprite;
-spr_HUDnf         : array['0'..';' ] of TImage;
-spr_HUDnfw        : byte = 8;
-spr_HUDnfh        : byte = 15;
-spr_hudpanel      : TImage;
+spr_rcwall_doortrack,
+spr_rcwall_door   : array[0..1] of TRCImage;
+spr_rcwall_hline  : TRCImage;
+spr_rcwall        : array[0..1,'A'..'Z'] of TRCImage;
+spr_rcdecor       : array['a'..'z' ] of TRCImage;
+spr_rcitem        : array[0..16    ] of TRCImage;
+spr_rceffect      : array[0..4,0..3] of TRCImage;
+spr_rcflame       : array[0..2     ] of TRCImage;
+spr_rcrocket      : array[0..7     ] of TRCImage;
+spr_rcteam        : array[0..MaxTeamsI,0..SkinSprites] of TRCImage;
+spr_rcelectro     : array[0..4     ] of TRCImage;
+spr_rcmeat        : array[0..4     ] of TRCImage;
+spr_HUDfont       : array['0'..';' ] of TImage;
+spr_HUDfont_w     : byte = 8;
+spr_HUDfunt_h     : byte = 15;
+spr_HUDpanel      : TImage;
 spr_HUDgun        : array[0..WeaponsN,0..1] of TImage;
 spr_HUDgunX,
 spr_HUDgunY       : array[0..WeaponsN,0..1] of integer;
-spr_hudw          : array[0..WeaponsN] of TImage;
-spr_hudt          : array[0..MaxTeamsI] of TImage;
-spr_hudh          : array[0..22] of TImage;
+spr_HUDgun_inv    : array[0..WeaponsN] of TImage;
+spr_HUDteam       : array[0..MaxTeamsI] of TImage;
+spr_HUDface       : array[0..22] of TImage;
 
 font_ca           : array[char] of TImage;
 font_w            : integer = 8;
@@ -317,7 +320,7 @@ hud_gbrc_h,
 hud_pl_staty0,
 hud_pl_staty1
                   : integer;
-hud_txtyscale,
+hud_txt_yscale,
 hud_fscale,
 hud_ifscale       : single;
 
@@ -348,10 +351,12 @@ c_lime            : TColor;
 
 team_color        : array[0..MaxTeamsI] of PTColor;
 
+snd_meat,
+snd_fire,
 snd_weapon,
 snd_chain,
 snd_death,
-
+snd_explode,
 snd_noammo,
 snd_ammo,
 snd_chat,
@@ -360,23 +365,53 @@ snd_score,
 snd_spawn,
 snd_armor,
 snd_mmove   : TALuint;
-snd_gun     : array[0..4] of TALuint;
+snd_gun     : array[0..WeaponsN] of TALuint;
 snd_skinD   : array[0..3] of TALuint;
 snd_skinP   : array[0..3] of TALuint;
 
+editor_icons: array[0..editor_icons_n] of TImage;
+
+editor_ceil_color,
+editor_floor_color
+            : TColor;
+
+editor_vx,
+editor_vy,
+editor_vw,
+editor_vspeed,
+editor_panel_b,
+editor_mouse_x,
+editor_mouse_y,
+editor_mouse_gx,
+editor_mouse_gy,
+editor_mouse_mx,
+editor_mouse_my,
+editor_grid_w,
+editor_grid_hw
+            : integer;
+editor_mapi : word = 0;
+editor_panel_mapi
+            : word = 0;
+
+editor_brush_wall : char = 'A';
+editor_brush_decor: char = 'a';
+editor_brush_item : char = '1';
+editor_brush_spawn: char = '<';
+editor_brush      : char = 'A';
+
+editor_map        : TMapEditorGrid;
+
 {$ELSE}
 
-_bans              : array of TBan;
-_bann              : word = 0;
+sv_bans                : array of TBan;
+sv_bann                : word = 0;
+sv_rcon_pass           : shortstring = 'wolfadmin';
+sv_net_port            : word = 35700;
+sv_room_config_fname   : shortstring = 'rooms.cfg';
 
-rcon_pass          : shortstring = 'wolfadmin';
-
-sv_net_port        : word = 35700;
-sv_roomcfgfn       : shortstring = 'rooms.cfg';
-
-net_advertise      : boolean = true;
-net_advertise_Timer: integer = 0;
-net_advertise_ip   : cardinal = cardinal.MaxValue;
-net_advertise_port : word = 0;
+net_advertise          : boolean = true;
+net_advertise_timer    : integer = 0;
+net_advertise_ip       : cardinal = cardinal.MaxValue;
+net_advertise_port     : word = 0;
 
 {$ENDIF}
