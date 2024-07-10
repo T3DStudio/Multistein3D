@@ -11,6 +11,7 @@ begin
    c_red     := ColorRGBA(255,0  ,0  ,255);
    c_ltred   := ColorRGBA(255,128,128,255);
    c_blue    := ColorRGBA(0  ,0  ,255,255);
+   c_dblue   := ColorRGBA(0  ,0  ,128,255);
    c_ltblue  := ColorRGBA(128,128,255,255);
    c_aqua    := ColorRGBA(0  ,255,255,255);
    c_daqua   := ColorRGBA(0  ,64 ,64 ,255);
@@ -40,9 +41,7 @@ end;
 
 procedure CalcMenuVars;
 begin
-   hud_rcw_charn  := vid_log_w div font_w;
-   hud_chat_y     := vid_log_rh-font_h;
-   hud_rch_lines  :=(hud_chat_y div font_lh)-1;
+   hud_rcw_charn  := vid_w div font_w;
 
    menu_font_w    := round(font_w*menu_font_scale);
    menu_font_h    := round(font_h*menu_font_scale);
@@ -51,10 +50,10 @@ begin
 
    vid_log_mtx    := vid_log_hw+menu_font_w*2;
 
-   m_DRectX0      := vid_log_w div 8;
-   m_DRectX1      := vid_log_w-m_DRectX0;
+   m_DRectX0      := vid_w div 8;
+   m_DRectX1      := vid_w-m_DRectX0;
    m_DRectY0      := menu_ystep*3+(menu_font_h div 2);
-   m_DRectY1      := vid_log_h-m_DRectY0;
+   m_DRectY1      := vid_h-m_DRectY0;
    m_DRectW       := m_DRectX1-m_DRectX0;
    m_DRectH       := m_DRectY1-m_DRectY0;
 
@@ -99,79 +98,135 @@ begin
 end;
 
 procedure RCResolutionNext(next:boolean);
-const resn = 7;
-      resw : array[1..resn] of integer = (160,240,320,480,640,720,800);
-var i,
+const resn = 12;                       //             64   32  80
+      resw : array[1..resn] of integer = (vid_min_rw,64,128,160,240,320,480,640,720,800,912,vid_max_rw);
+var i,l,
 resc:integer;
 begin
    resc:=0;
    i   :=1;
+   l   :=1;
 
    for i:=1 to resn do
-    if(resw[i]=vid_rw)then
-    begin
-       resc:=i;
-       break;
-    end;
+   begin
+      if(resw[i]=vid_rw)then resc:=i;
+      if(resw[i]<=vid_w)then l:=i;
+   end;
 
    if(next)
    then resc+=1
    else resc-=1;
-   if(resc<1   )then resc:=resn;
-   if(resc>resn)then resc:=1;
+   if(resc<1)then resc:=l;
+   if(resc>l)then resc:=1;
 
-   SetRCResolution(resw[resc], round(resw[resc]/vid_aspect) );
+   SetRCResolution(
+   mm3i(vid_min_rw,resw[resc]                  ,vid_max_rw),
+   mm3i(vid_min_rh,round(resw[resc]/vid_aspect),vid_max_rh));
+end;
+
+procedure HUDLines;
+begin
+   hud_chat_y     := vid_log_rh-font_h;
+   scboard_col_bh := hud_chat_y-font_lh*6;//font_lh*42;
+   if(font_lh>0)then
+   hud_rch_lines  :=(hud_chat_y div font_lh)-1;
+end;
+
+procedure ReMakeHUDScales;
+var i,o:byte;
+begin
+   vid_aspect    := vid_w/vid_h;
+   vid_aspecti   := trunc(vid_aspect*100);
+
+   vid_hud_scale := (vid_w/320)*(hud_scale_prsnt/100);
+   vid_panelh    := trunc(32*vid_hud_scale);
+   vid_panelw    := trunc(320*vid_hud_scale);
+   vid_panelx    := (vid_w-vid_panelw) div 2;
+   vid_log_rh    := vid_h-vid_panelh;
+   vid_log_rih   := vid_log_rh-1;
+
+   HUDLines;
+
+   hud_pl_staty0 := vid_log_rh-60;
+   hud_pl_staty1 := vid_log_rh-40;
+   hud_pl_staty2 := vid_log_rh-20;
+   hud_gbrc_x    := hud_gborder_w;
+   hud_gbrc_y    := hud_gborder_w;
+   hud_gbrc_w    := vid_w-(hud_gborder_w*2);
+   hud_gbrc_h    := vid_h-(vid_panelh+hud_gborder_w*2);
+   hud_weapon_y  := vid_h-vid_panelh-hud_gborder_w;
+
+   hud_txt_yscale:= vid_hud_scale*1.9;
+   hud_fscale    := vid_hud_scale*1.3;
+   hud_ifscale   := vid_hud_scale*0.74;
+   hud_texty     := vid_log_rh+trunc(14 *vid_hud_scale);
+   hud_scorex    := vid_panelx+trunc(40 *vid_hud_scale);
+   hud_hitsx     := vid_panelx+trunc(80 *vid_hud_scale);
+   hud_armorx    := vid_panelx+trunc(128*vid_hud_scale);
+   hud_ammox     := vid_panelx+trunc(213*vid_hud_scale);
+   hud_invx      := vid_panelx+trunc(262*vid_hud_scale);
+   hud_invy      := vid_log_rh+trunc(4*vid_hud_scale);
+   hud_invix     := round(hud_ifscale*9.5);
+   hud_gunx      := vid_panelx+trunc(266*vid_hud_scale);
+   hud_guny      := vid_log_rh+trunc(9*vid_hud_scale);
+   hud_teamx     := vid_panelx+trunc(238*vid_hud_scale);
+   hud_teamy     := vid_log_rh+trunc(14*vid_hud_scale);
+   hud_hudhx     := vid_panelx+trunc(146*vid_hud_scale);
+   hud_hudhy     := vid_log_rh+trunc(2*vid_hud_scale)+1;
+
+   for i:=0 to WeaponsN do
+    for o:=0 to 1 do
+    begin
+       spr_HUDgunX[i,o]:=vid_log_hw-round(spr_HUDgun[i,o].w*vid_hud_scale) div 2;
+       spr_HUDgunY[i,o]:=hud_weapon_y-trunc(spr_HUDgun[i,o].h*vid_hud_scale);
+    end;
 end;
 
 procedure ScreenMake;
 const sdl_windows_flags   = SDL_WINDOW_RESIZABLE;
       sdl_windows_flags_f : array[false..true] of cardinal = (sdl_windows_flags,sdl_windows_flags+SDL_WINDOW_FULLSCREEN);
 begin
+   window_w    := vid_w;
+   window_h    := vid_h;
+   screenshot_w:= vid_w;
+   screenshot_h:= vid_h;
+
+   vid_log_hw   := vid_w div 2; // logical resolution  center
+   vid_log_hh   := vid_h div 2;
+   vid_msg_x    := vid_w div 2; // game message position
+   vid_msg_y    := vid_h div 2;
+   vid_vote_x   := vid_w div 2; // vote message position
+   vid_vote_y   := vid_h div 6;
+   vid_suddend_y:= vid_h div 10;
+
    if(vid_window=nil)then
    begin
       vid_window := SDL_CreateWindow(str_wcaption, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_w, window_h, sdl_windows_flags_f[vid_fullscreen]);
       if(vid_window=nil)then begin WriteSDLError('SDL_CreateWindow'); halt; end;
-   end;
-
+   end
+   else SDL_SetWindowSize(vid_window,window_w,window_h);
+   if(vid_renderer=nil)then
    vid_renderer := SDL_CreateRenderer(vid_window, -1,SDL_RENDERER_ACCELERATED or SDL_RENDERER_TARGETTEXTURE);
 
-   SDL_RenderSetLogicalSize(vid_renderer,vid_log_w, vid_log_h);
+   SDL_RenderSetLogicalSize(vid_renderer,vid_w, vid_h);
 
-   vid_hud_scale := vid_log_w/320;
-   vid_panelh    := trunc(32*vid_hud_scale);
-   vid_log_rh    := vid_log_h-vid_panelh;
-   vid_log_rih   := vid_log_rh-1;
+   ReMakeHUDScales;
 
-   hud_pl_staty0 := vid_log_rh-40;
-   hud_pl_staty1 := vid_log_rh-20;
-   hud_gbrc_x    := hud_gborder_w;
-   hud_gbrc_y    := hud_gborder_w;
-   hud_gbrc_w    := vid_log_w-(hud_gborder_w*2);
-   hud_gbrc_h    := vid_log_h-(vid_panelh+hud_gborder_w*2);
-   hud_weapon_y  := vid_log_h-vid_panelh-hud_gborder_w;
-
-   vid_aspect    := vid_log_w/vid_log_h;
-   vid_aspecti   := trunc(vid_aspect*100);
-
-   hud_txt_yscale:= vid_hud_scale*1.9;
-   hud_fscale    := vid_hud_scale*1.3;
-   hud_ifscale   := vid_hud_scale*0.74;
-   hud_texty     := vid_log_rh+trunc(14*vid_hud_scale);
-   hud_scorex    := trunc(40 *vid_hud_scale);
-   hud_hitsx     := trunc(80 *vid_hud_scale);
-   hud_armorx    := trunc(128*vid_hud_scale);
-   hud_ammox     := trunc(213*vid_hud_scale);
-   hud_invx      := trunc(262*vid_hud_scale);
-   hud_invy      := vid_log_rh+trunc(4*vid_hud_scale);
-   hud_invix     := round(hud_ifscale*9.5);
-   hud_gunx      := trunc(266*vid_hud_scale);
-   hud_guny      := vid_log_rh+trunc(9*vid_hud_scale);
-   hud_teamx     := trunc(238*vid_hud_scale);
-   hud_teamy     := vid_log_rh+trunc(14*vid_hud_scale);
-   hud_hudhx     := trunc(146*vid_hud_scale);
-   hud_hudhy     := vid_log_rh+trunc(1*vid_hud_scale)+1;
+   vid_rw:=mm3i(vid_min_rw,vid_rw,vid_w);
+   vid_rh:=mm3i(vid_min_rh,vid_rh,vid_h);
 
    SetRCResolution(vid_rw,vid_rh);
+end;
+
+procedure SetWindowResolution;
+begin
+   txt_ValidateWRes;
+
+   vid_w:=menu_vid_w;
+   vid_h:=menu_vid_h;
+
+   ScreenMake;
+   CalcMenuVars;
 end;
 
 procedure ScreenToggleWindowed;
@@ -430,7 +485,8 @@ begin
    scboard_frag_w:=font_w*length(str_sb_frags)+font_w;
    scboard_ping_w:=font_w*length(str_sb_ping)+font_w;
    scboard_col_w :=scboard_name_w+scboard_frag_w+scboard_ping_w+font_w*6;
-   scboard_col_bh:=font_lh*42;
+
+   HUDLines;
 
    ccc :=sdl_getpixel(fspr.surface,0,0);
    for i:=0 to 255 do

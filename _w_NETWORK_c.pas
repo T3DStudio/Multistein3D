@@ -53,6 +53,8 @@ begin
    InitNET:=true;
 end;
 
+
+
 ////////////////////////////////////////////////////////////////////////////////
 
 procedure net_send(ip:cardinal;port:word);
@@ -61,7 +63,6 @@ begin
    net_buffer^.address.host:=ip;
    net_buffer^.address.port:=port;
    SDLNet_UDP_Send(net_socket,-1,net_buffer);
-
    {$IFDEF FULLGAME}
    net_packets_out+=1;
    {$ENDIF}

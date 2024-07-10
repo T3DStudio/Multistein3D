@@ -118,8 +118,8 @@ end;
 
 procedure editor_ViewBorders;
 begin
-   editor_vx:=mm3i(0,editor_vx,editor_vw-vid_log_w+editor_panel_w);
-   editor_vy:=mm3i(0,editor_vy,editor_vw-vid_log_h);
+   editor_vx:=mm3i(0,editor_vx,editor_vw-vid_w+editor_panel_w);
+   editor_vy:=mm3i(0,editor_vy,editor_vw-vid_h);
 end;
 
 procedure editor_mouse(newx,newy:integer);
@@ -134,7 +134,7 @@ begin
    if(editor_mouse_my<0)then editor_mouse_gy-=1;
 
    editor_panel_b:=-1;
-   if (0<=editor_mouse_y)and(editor_mouse_y<=vid_log_h)
+   if (0<=editor_mouse_y)and(editor_mouse_y<=vid_h)
    and(0<=editor_mouse_x)and(editor_mouse_x<=editor_panel_w)then editor_panel_b:=editor_mouse_y div editor_panel_w;
 end;
 

@@ -8,11 +8,11 @@ begin
       case mtype of
       gpt_fire  : begin
                      cl_eff_add(mx,my,0,1.15,eid_fire);
-                     PlaySoundSource(snd_fire   ,nil,nil,mx,my);
+                     Sound_PlaySource(snd_fire   ,nil,nil,mx,my);
                   end;
       gpt_rocket: begin
                      cl_eff_add(mx,my,0,1.75,eid_fire);
-                     PlaySoundSource(snd_explode,nil,nil,mx,my);
+                     Sound_PlaySource(snd_explode,nil,nil,mx,my);
                   end;
       end;
       mtype:=0;
@@ -26,7 +26,7 @@ var p:byte;
 begin
    for p:=0 to MaxPlayers do
     with g_players[p] do
-     if(room=aroom)and(state>ps_none)then pl_state(@g_players[p],ps_none,false);
+     if(room=aroom)and(state>ps_none)then player_State(@g_players[p],ps_none,false);
    with aroom^ do FillChar(team_frags,SizeOf(team_frags),0);
 end;
 
@@ -36,7 +36,7 @@ begin
    for p:=0 to MaxPlayers do
     with g_players[p] do
      if(room=aroom)and(state>ps_none)then
-      pl_state(@g_players[p],ps_spec,false);
+      player_State(@g_players[p],ps_spec,false);
 end;
 
 procedure room_PlayersResetAll(aroom:PTRoom);
@@ -44,7 +44,7 @@ var p:byte;
 begin
    for p:=0 to MaxPlayers do
     with g_players[p] do
-     if(room=aroom)and(state>ps_spec)then PlayerReset(@g_players[p]);
+     if(room=aroom)and(state>ps_spec)then player_Reset(@g_players[p]);
 end;
 
 procedure room_ObjectsResetAll(aroom:PTRoom);
@@ -81,7 +81,7 @@ begin
       FillChar(team_frags,SizeOf(team_frags),0);
       time_scorepause:=0;
       time_tick      :=0;
-      demo_break(aroom,'room reset');
+      demo_break(aroom,'room reset',false);
    end;
    room_TimeUpdate(aroom);
    {$IFDEF FULLGAME}
@@ -100,7 +100,7 @@ begin
    room_ObjectsResetAll(aroom);
    with aroom^ do FillChar(team_frags,SizeOf(team_frags),0);
    room_PlayersResetAll(aroom);
-   room_log_add(aroom,log_endgame,str_resetmatch);
+   room_log_add(aroom,log_matchreset,str_resetmatch);
    {$IFDEF FULLGAME}
    ClearClientEffects;
    {$ENDIF}
@@ -112,7 +112,7 @@ begin
    for p:=0 to MaxPlayers do
     with g_players[p] do
      if(room=aroom)and(state>ps_none)and(bot)then
-      pl_state(@g_players[p],ps_none,true);
+      player_State(@g_players[p],ps_none,true);
    with aroom^ do
     if(length(team_name)=0)
     then FillChar(bot_maxt,sizeof(bot_maxt),0)
@@ -120,16 +120,26 @@ begin
       for p:=0 to MaxTeamsI do
        if(str_teams[p]=team_name)then bot_maxt[p]:=0;
 end;
-procedure Room_BotAdd(aroom:PTRoom;team_name:shortstring);
+procedure Room_BotAdd(aroom:PTRoom;BotSkill:byte;team_name:shortstring);
 var p:byte;
 begin
    with aroom^ do
-    if(length(team_name)=0)
-    then bot_maxt[random(MaxTeams)]+=1
-    else
-      for p:=0 to MaxTeamsI do
-       if(str_teams       [p]=team_name)
-       or(str_teams_shorts[p]=team_name)then bot_maxt[p]+=1;
+   begin
+      bot_skill_default:=BotSkill;
+      if(length(team_name)=0)then
+      begin
+         p:=random(MaxTeams);
+         bot_maxt[p]+=1;
+      end
+      else
+        for p:=0 to MaxTeamsI do
+          if(str_teams       [p]=team_name)
+          or(str_teams_shorts[p]=team_name)then
+          begin
+             bot_maxt[p]+=1;
+             break;
+          end;
+   end;
 end;
 
 procedure room_LogClear(aroom:PTRoom);
@@ -176,6 +186,7 @@ begin
       vote_time   := 0;
       vote_cmd    := '';
 
+      bot_skill_default:=50;
       bot_cur     :=0;
       FillChar(bot_curt  ,SizeOf(bot_curt  ),0);
       FillChar(bot_maxt  ,SizeOf(bot_maxt  ),0);
@@ -252,7 +263,7 @@ mgr_item_ammo      : begin  // ammo bullets
     {$IFDEF FULLGAME}isprite           := 3;{$ENDIF}
                      end;
 mgr_item_ammobox   : begin  // big ammo bullets
-                     iammo[ammo_bullet]:= 40;
+                     iammo[ammo_bullet]:= 50;
                      irespm            := fr_fpsx1*20;
     {$IFDEF FULLGAME}isprite           := 4;{$ENDIF}
                      end;
@@ -291,14 +302,14 @@ mgr_item_flame     : begin  // flamethrower
                      end;
 mgr_item_panzer    : begin  // panzerfaust
                      iweapon           := gun_bit[6];
-                     iammo[ammo_rocket]:= 5;
+                     iammo[ammo_rocket]:= 4;
                      irespm            := fr_fpsx1*20;
     {$IFDEF FULLGAME}isprite           := 11;{$ENDIF}
                      end;
 mgr_item_tesla     : begin  // tesla
                      iweapon           := gun_bit[7];
-                     iammo[ammo_tesla] := 5;
-                     irespm            := fr_fpsx1*20;
+                     iammo[ammo_tesla] := 3;
+                     irespm            := fr_fpsx1*30;
     {$IFDEF FULLGAME}isprite           := 12;{$ENDIF}
                      end;
 mgr_item_ammorifle : begin  // ammo rifle
@@ -317,8 +328,8 @@ mgr_item_ammopanzer: begin  // ammo panzer
     {$IFDEF FULLGAME}isprite           := 15;{$ENDIF}
                      end;
 mgr_item_ammotesla : begin  // ammo tesla
-                     iammo[ammo_tesla] := 5;
-                     irespm            := fr_fpsx1*20;
+                     iammo[ammo_tesla] := 3;
+                     irespm            := fr_fpsx1*30;
     {$IFDEF FULLGAME}isprite           := 16;{$ENDIF}
                      end;
          else
@@ -337,9 +348,9 @@ var p,wp1    :byte;
 begin
    with aroom^ do
    begin
-      wf1:=-32000;
+      wf1:=wf1.MinValue;
       wp1:=255;
-      wf2:=-32000;
+      wf2:=wf2.MinValue;
       if(Room_CheckFlag(aroom,sv_g_teams))then
       begin
          for p:=0 to MaxTeamsI do
@@ -431,7 +442,7 @@ begin
          _line(rcfg_roomname  +';'+rname      );
          _line(rcfg_maxplayers+';'+b2s(max_players));
          _line(rcfg_maxclients+';'+b2s(max_clients));
-         _line(rcfg_timelimit +';'+c2s(g_timelimit));
+         _line(rcfg_timelimit +';'+b2s(g_timelimit));
          _line(rcfg_fraglimit +';'+i2s(g_fraglimit));
          _line(rcfg_flags     +';'+RFlags2Str(g_flags));
          _line('TIME'         +';'+w2s(time_min)+':'+w2s(time_sec));
@@ -525,8 +536,8 @@ begin
 
       if(r_missile_n>0)then
        for i:=0 to r_missile_n-1 do
-        if(MissileProc(aroom,@r_missile_l[i]))then
-        {$IFDEF FULLGAME}eff_MissileExplode(@r_missile_l[i]);{$ELSE};{$ENDIF}
+        if(missile_Proc(aroom,@r_missile_l[i]))then
+         {$IFDEF FULLGAME}eff_MissileExplode(@r_missile_l[i]);{$ELSE}r_missile_l[i].mtype:=0;{$ENDIF}
    end;
 end;
 
@@ -652,7 +663,11 @@ procedure room_MapByName(aproom:PTRoom;mname:shortstring);
 var mi:word;
 begin
    mi:=map_name2n(mname);
-   if(mi>=g_mapn)then exit;
+   if(mi>=g_mapn)then
+   begin
+      room_log_add(aproom,log_local,str_nomap+' '+mname);
+      exit;
+   end;
    map_LoadToRoomByN(aproom,mi);
    {$IFDEF FULLGAME}
    room_Reset(aproom,false);
@@ -842,11 +857,12 @@ rcfg_voteratio : vote_ratio  := mm3w(0,s2b(vr),100)/100;
 rcfg_roomname  : rname       := vr;
 rcfg_maxplayers: max_players := mm3w(2,s2b(vr),MaxPlayers);
 rcfg_maxclients: max_clients := mm3w(2,s2b(vr),MaxPlayers);
-rcfg_timelimit : g_timelimit := mm3w(0,s2b(vr),60        );
+rcfg_timelimit : g_timelimit := mm3b(0,s2b(vr),60        );
 rcfg_fraglimit : g_fraglimit := mm3i(0,s2i(vr),32000     );
 rcfg_flags     : g_flags     := str2RFlags(vr);
 rcfg_resettime : g_scorepause:= mm3w(5,s2b(vr),59)*fr_fpsx1;
 rcfg_deathtime : g_deathtime := mm3w(0,s2b(vr),60)*fr_fpsx1;
+'bot_skill'    : bot_skill_default:= mm3w(1,s2b(vr),100);
 'bots_SS'      : bot_maxt[0] := mm3w(0,s2b(vr),MaxPlayers);
 'bots_MU'      : bot_maxt[1] := mm3w(0,s2b(vr),MaxPlayers);
 'bots_SO'      : bot_maxt[2] := mm3w(0,s2b(vr),MaxPlayers);
@@ -893,15 +909,15 @@ begin
    room_SetDefault(sv_clroom);
    with sv_clroom^ do
    begin
-      rnum    :=0;
-      map_cur    :=0;
+      rnum     :=0;
+      map_cur  :=0;
       maplist_n:=1;
       setlength(maplist_l,maplist_n);
       maplist_l[0]:=menu_bmm;
       time_scorepause:=0;
    end;
-   cl_playeri:=0;
-   cam_pl    :=0;
+   cl_playeri   :=0;
+   cam_pl       :=0;
    server_ping_p:=0;
    server_ping_t:=0;
    server_ping_r:=false;

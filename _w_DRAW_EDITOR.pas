@@ -67,12 +67,12 @@ begin
 end;
 begin
    x:=editor_panel_w-(editor_vx mod editor_grid_w);
-   while(x<=vid_log_w)do
+   while(x<=vid_w)do
    begin
       gx:=(x+editor_vx-editor_panel_w) div editor_grid_w;
 
       y:=-(editor_vy mod editor_grid_w);
-      while(y<=vid_log_h)do
+      while(y<=vid_h)do
       begin
          gy:=(y+editor_vy) div editor_grid_w;
 
@@ -90,10 +90,11 @@ begin
             if(gx=editor_mouse_gx)and(gy=editor_mouse_gy)
             then draw_rectangle(x,y,x+editor_grid_w-1,y+editor_grid_w-1,@c_lime)
             else
-            begin
-               draw_line(x,y,x+editor_grid_w,y,@c_gray);
-               draw_line(x,y,x,y+editor_grid_w,@c_gray);
-            end;
+              if(editor_grid)then
+              begin
+                 draw_line(x,y,x+editor_grid_w,y,@c_gray);
+                 draw_line(x,y,x,y+editor_grid_w,@c_gray);
+              end;
          end;
 
          y+=editor_grid_w;
@@ -103,10 +104,19 @@ begin
    end;
 
    // pannel
-   draw_box (0,0,editor_panel_wb,vid_log_h,@c_black ,false);
+   draw_box (0,0,editor_panel_wb,vid_h,@c_black ,false);
 
    draw_imageEx(1,by(editor_pb_mapload),@editor_icons[0],nil,false,editor_panel_iw,editor_panel_iw);
    draw_imageEx(1,by(editor_pb_save   ),@editor_icons[1],nil,false,editor_panel_iw,editor_panel_iw);
+
+   gy:=by(editor_pb_grid);
+   draw_imageEx(1,gy,@editor_icons[4],nil,false,editor_panel_iw,editor_panel_iw);
+
+   if(editor_grid)then
+   begin
+      draw_rectangle(0,gy  ,editor_panel_iw+1,gy+editor_panel_iw+1,@c_lime);
+      draw_rectangle(1,gy+1,editor_panel_iw  ,gy+editor_panel_iw  ,@c_lime);
+   end;
 
    rcimage:=char2rcimage(editor_brush_wall ,@xa);
    draw_EditorCell(0,by(editor_pb_bwalls ),editor_panel_w,editor_panel_hw,rcimage,xa,(editor_brush in mgr_bwalls)or(editor_brush=mgr_door));
@@ -120,9 +130,9 @@ begin
    draw_imageEx(1,by(editor_pb_hmove  ),@editor_icons[2],nil,false,editor_panel_iw,editor_panel_iw);
    draw_imageEx(1,by(editor_pb_vmove  ),@editor_icons[3],nil,false,editor_panel_iw,editor_panel_iw);
 
-   draw_line(editor_panel_wb,0,editor_panel_wb,vid_log_h,@c_ltgray);
+   draw_line(editor_panel_wb,0,editor_panel_wb,vid_h,@c_ltgray);
    y:=editor_panel_w;
-   while(y<vid_log_h)do
+   while(y<vid_h)do
    begin
       draw_line(0,y,editor_panel_wb,y,@c_ltgray);
       y+=editor_panel_w;
@@ -145,9 +155,9 @@ begin
    end;
 
    //editor_panel_b
+   draw_text(editor_panel_wt,vid_h-font_lh,1,i2s(editor_mouse_gx)+','+i2s(editor_mouse_gy),ta_left,@c_white,@c_black);
    with g_maps[editor_mapi] do
-     draw_text(editor_panel_wt,vid_log_h-font_lh,1,mname,ta_left,@c_white,@c_black);
-   draw_text(editor_panel_wt,vid_log_h-font_lh*2,1,i2s(editor_mouse_gx)+','+i2s(editor_mouse_gy),ta_left,@c_white,@c_black);
+     draw_text(editor_panel_wt,vid_h-font_lh*3,2,mname,ta_left,@c_white,@c_black);
 
    // cursor
    draw_line  (editor_mouse_x,editor_mouse_y,editor_mouse_x+10,editor_mouse_y+10,@c_white);

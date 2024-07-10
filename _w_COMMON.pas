@@ -1,5 +1,5 @@
 
-procedure pl_state(aplayer:PTPlayer;nstate:byte;log:boolean);forward;
+procedure player_State(aplayer:PTPlayer;nstate:byte;log:boolean);forward;
 
 function b2s (i:byte    ):shortstring;begin str(i,b2s );end;
 function w2s (i:word    ):shortstring;begin str(i,w2s );end;
@@ -23,13 +23,13 @@ function mm3b(mnx,x,mxx:byte   ):byte   ;begin mm3b:=x;if(x<mnx)then mm3b:=mnx;i
 
 function i2b(i,max:integer):byte;begin i2b:=byte(mm3i(0,i,max));end;
 
-procedure PlayerReset(aplayer:PTPlayer); forward;
+procedure player_Reset(aplayer:PTPlayer); forward;
 
 procedure demo_Processing(aproom:PTRoom); forward;
 procedure demo_init_data(aproom:PTRoom);forward;
-procedure demo_break(aproom:PTRoom;error_msg:shortstring);forward;
+procedure demo_break(aproom:PTRoom;error_msg:shortstring;SwitchToMenu:boolean);forward;
 
-function MissileProc(aroom:PTRoom;amissile:PTMissile):boolean;forward;
+function missile_Proc(aroom:PTRoom;amissile:PTMissile):boolean;forward;
 
 
 procedure fr_init;
@@ -84,8 +84,8 @@ begin
 end;
 
 {$IFDEF FULLGAME}
-procedure PlaySoundSource(schunk:TALint;psx,psy:psingle;sx,sy:single); forward;
-procedure draw_last_mess; forward;
+procedure Sound_PlaySource(schunk:TALint;psx,psy:psingle;sx,sy:single); forward;
+procedure draw_last_message; forward;
 procedure net_SendChat(str:shortstring);forward;
 function str2RFlags(s:shortstring):cardinal;forward;
 {$ELSE}
@@ -259,7 +259,7 @@ begin
 rcfg_roomname  : rname      := vr;
 rcfg_maxplayers: max_players:= s2b(vr);
 rcfg_maxclients: max_clients:= s2b(vr);
-rcfg_timelimit : g_timelimit:= s2c(vr);
+rcfg_timelimit : g_timelimit:= s2b(vr);
 rcfg_fraglimit : g_fraglimit:= s2i(vr);
 rcfg_flags     : g_flags    := str2RFlags(vr);
    end;
@@ -303,16 +303,21 @@ begin
       then hud_last_mesn:=hud_last_mess_max-1;
 
       case arg_id of
-log_winner  : PlaySoundSource(snd_score,@cam_x,@cam_y,0,0);
-log_chat    : if(player_chat_snd)then
-              PlaySoundSource(snd_chat ,@cam_x,@cam_y,0,0);
-log_roomdata: ParseRoomDataStr(arg_string);
+log_winner     : Sound_PlaySource(snd_score,@cam_x,@cam_y,0,0);
+log_chat       : if(player_chat_snd)then
+                 Sound_PlaySource(snd_chat ,@cam_x,@cam_y,0,0);
+log_roomdata   : ParseRoomDataStr(arg_string);
+log_suddendeath: ;
       end;
       case arg_id of
+log_matchreset : if(demo_cstate=ds_read)then
+                 begin
+                    time_scorepause:=0;
+                    time_tick:=0;
+                 end;
 log_winner,
-log_endgame : if(menu_locmatch)
-              then time_scorepause:=TicksPerMinute
-              else time_scorepause:=1;
+log_endgame    : if(demo_cstate=ds_read)
+                 then time_scorepause:=1;
       end;
       {$ELSE}
       writeln('Room #',rnum+1,': ',arg_string);
@@ -345,7 +350,7 @@ begin
            net_fupd   := false;
            pause_snap := net_upd_time[net_fupd];
            net_NewPlayer:=p;
-           pl_state(@g_players[p],ps_spec,true);
+           player_State(@g_players[p],ps_spec,true);
            {$IFNDEF FULLGAME}
            vote       := 0;
            pause_logsend:=0;
@@ -374,24 +379,34 @@ begin
      end;
 end;
 
-function ip2c(s:shortstring):cardinal;
-var i,l,r:byte;
-    e:array[0..3] of byte = (0,0,0,0);
+function ip2c(s:shortstring;isip:pboolean):cardinal;
+{$IFNDEF FULLGAME}
+const chars_digits           : set of Char = ['0'..'9'];
+{$ENDIF}
+var i,l,
+     bn:byte;
+     e :array[0..3] of byte = (0,0,0,0);
 begin
-   r:=0;
-   l:=length(s);
+   ip2c:=0;
+   if(isip<>nil)then isip^:=false;
+   bn:=0;
+   l :=length(s);
    if(l>0)then
-    for i:=1 to l do
-     if(s[i]='.')then
-     begin
-        r:=r+1;
-        if(r>3)then break;
-     end
-     else e[r]:=s2b(b2s(e[r])+s[i]);
+     for i:=1 to l do
+       if(s[i]='.')then
+       begin
+          bn+=1;
+          if(bn>3)then exit;
+       end
+       else
+         if(s[i] in chars_digits)
+         then e[bn]:=s2b(b2s(e[bn])+s[i])
+         else exit;
+   if(isip<>nil)then isip^:=true;
    ip2c:=cardinal((@e)^);
 end;
 
-function c2ip(c:cardinal):string;
+function c2ip(c:cardinal):shortstring;
 begin
    c2ip:=b2s (c and $000000FF)
     +'.'+b2s((c and $0000FF00) shr 8 )
@@ -632,6 +647,21 @@ begin
    end;
 end;
 
+procedure ActKeysClear;
+var i:byte;
+begin
+   for i:=0 to 255 do cl_acts[i]:=0;
+   last_key_m:=0;
+end;
+
+procedure ToggleConsole;
+begin
+   hud_console:=not hud_console;
+   chat_line:=false;
+   ActKeysClear;
+   MouseGrabCheck;
+end;
+
 procedure menu_switch(forcemode:byte);
 begin
    if(forcemode<3)
@@ -694,7 +724,7 @@ begin
    end;
 end;
 
-procedure port_txt(port:pword;ports:pshortstring);
+{procedure port_txt(port:pword;ports:pshortstring);
 begin
    port^ :=swap(s2w (ports^));
    ports^:=w2s (swap(port^ ));
@@ -704,6 +734,66 @@ procedure ip_txt(ip:pcardinal;ips:pshortstring);
 begin
    ip^ :=ip2c(ips^);
    ips^:=c2ip(ip^ );
+end;  }
+
+procedure txt_ValidateAddr;
+var
+addrs,
+ports: shortstring;
+pansi:PAnsiChar;
+    p: byte;
+  ipc: cardinal;
+ isip: boolean;
+ipstruct:TIPaddress;
+begin
+   addrs:='';
+   ports:='';
+   p    :=pos(':',cl_net_svaddr);
+   if(p>0)then
+   begin
+      addrs:=copy(cl_net_svaddr,1,p-1);
+      delete(cl_net_svaddr,1,p);
+      ports:=cl_net_svaddr;
+   end
+   else
+   begin
+      addrs:=cl_net_svaddr;
+      ports:='35700';
+   end;
+
+   cl_net_svport:=swap(s2w(ports));
+   ports:=w2s(swap(cl_net_svport));
+
+   ipc:=ip2c(addrs,@isip);
+   if(isip)then
+   begin
+      cl_net_svip  :=ipc;
+      cl_net_svaddr:=c2ip(cl_net_svip)+':'+ports;
+   end
+   else
+   begin
+      cl_net_svaddr:=addrs+':'+ports;
+      addrs+=#0;
+      pansi:=@addrs[1];
+      if(SDLNet_ResolveHost(@ipstruct,pansi,cl_net_svport)=0)then
+      begin
+         cl_net_svip:=ipstruct.host;
+         room_log_add(sv_clroom,log_local,cl_net_svaddr+': resolved host to '+c2ip(cl_net_svip));
+      end
+      else
+      begin
+         cl_net_svip:=0;
+         room_log_add(sv_clroom,log_local,cl_net_svaddr+': resolve host fail');
+      end;
+   end;
+end;
+
+procedure txt_ValidateWRes;
+begin
+   menu_vid_w:=mm3i(vid_min_w,s2i(menu_vid_ws),vid_max_w);
+   menu_vid_h:=mm3i(vid_min_h,s2i(menu_vid_hs),vid_max_h);
+   menu_vid_ws:=i2s(menu_vid_w);
+   menu_vid_hs:=i2s(menu_vid_h);
 end;
 
 function RGBA2Card(r,g,b,a:byte):cardinal;

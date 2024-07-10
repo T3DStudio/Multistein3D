@@ -125,6 +125,7 @@ begin
             wx:=vid_rh/pWD;
 
             lh :=trunc(wx);
+            if(lh<1)then lh:=1;
 
             de:=vid_rhh+trunc(cam_z*wx);
             ds:=de-lh;
@@ -161,9 +162,10 @@ begin
             end;
             while iy<=de do
             begin
-               //texy:=iy2 shr rc_intS;
-               //if(texy<rc_TextureWall_iw)then
-               cpix^:=ptextl^[iy2 shr rc_intS];
+               texy:=iy2 shr rc_intS;
+               if(texy<ptextw^.rc_h)
+               then cpix^:=ptextl^[texy]
+               else cpix^:=fc;
                cpix +=vid_rw;
                iy   +=1;
                iy2  +=d2;
@@ -651,7 +653,7 @@ begin
         with r_missile_l[i] do
          if(mtype>0)then
           case mtype of
-          gpt_fire  : rc_spr_add(mx,my,0,0.5,1,@spr_rcflame [(animation_tick div 4) mod 3],false);
+          gpt_fire  : rc_spr_add(mx,my,0,0.5,0.66,@spr_rcflame [(animation_tick div 4) mod 3],false);
           gpt_rocket: begin
                       if(mdir>-1)then
                       rc_spr_add(mx,my,0,0.5,1,@spr_rcrocket[((trunc(point_dir(rc_x,rc_y,mx,my)-dir_360(mdir))+383) mod 360) div 45],false);

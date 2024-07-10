@@ -178,6 +178,7 @@ TRoom = record
    vote_time   : word;
    vote_ratio  : single;
 
+   bot_skill_default,
    bot_cur     : byte;
    bot_curt    : array[0..MaxTeamsI] of byte;
    bot_maxt    : array[0..MaxTeamsI] of byte;
@@ -185,7 +186,7 @@ TRoom = record
    g_fraglimit : integer;
    team_frags  : array[0..MaxTeamsI] of integer;
 
-   g_timelimit,
+   g_timelimit : byte;
    time_min,
    time_min_prev,
    time_sec,
@@ -289,10 +290,15 @@ TPlayer = record
    gun_curr,
    gun_inv,
    pdata_player,
-   bot_enemy
+   bot_enemy,
+   bot_reaction,
+   bot_skill_aggression,
+   bot_skill_reaction,
+   bot_skill_shootfreq,
+   bot_skill_moveskip,
+   bot_skill_turnspeed,
+   bot_skill_instspread
            : byte;
-   bot_reaction
-           : word;
    bot_ax,
    bot_ay,
    bot_md,

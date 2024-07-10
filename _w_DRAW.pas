@@ -157,14 +157,21 @@ begin
    end;
 end;
 
+function lineCursorBlink:char;
+begin
+   if(vid_line_blink)
+   then lineCursorBlink:='|'
+   else lineCursorBlink:=' ';
+end;
+
 procedure draw_chat_uiline;
 var s:shortstring;
 begin
-   draw_box(0,hud_chat_y,vid_log_w,vid_log_rih,@c_ablack,true);
-   s:=str_say+chat_str;
+   draw_box(0,hud_chat_y,vid_w,vid_log_rih,@c_ablack,true);
+   s:=str_say+chat_str+lineCursorBlink;
    if(length(s)<hud_rcw_charn)
-   then draw_text(0        ,hud_chat_y,1,s,ta_left ,@c_white,nil)
-   else draw_text(vid_log_w,hud_chat_y,1,s,ta_right,@c_white,nil);
+   then draw_text(0    ,hud_chat_y,1,s,ta_left ,@c_white,nil)
+   else draw_text(vid_w,hud_chat_y,1,s,ta_right,@c_white,nil);
 end;
 
 procedure draw_dHUDt(x,y:integer;s:shortstring;xscale,yscale:single);
@@ -242,7 +249,13 @@ const HHH : shortstring = ';;;';
 var i,a:integer;
     t:shortstring;
 begin
-   draw_image(0,vid_log_rh,@spr_HUDpanel,@c_white,false,vid_hud_scale,vid_hud_scale);
+   if(vid_panelx>0)then
+   begin
+   draw_box(0,vid_log_rh,vid_panelx,vid_h,@c_dblue,false);
+   draw_box(vid_panelx+vid_panelw,vid_log_rh,vid_w,vid_h,@c_dblue,false);
+   end;
+
+   draw_image(vid_panelx,vid_log_rh,@spr_HUDpanel,@c_white,false,vid_hud_scale,vid_hud_scale);
 
    with g_players[cam_pl] do
    if(state>ps_spec)then
@@ -315,6 +328,10 @@ begin
      if(cl_net_cstat=cstate_snap)and(cl_net_mpartn<=NetMapParts)
      then draw_text(vid_msg_x,vid_msg_y,menu_font_scale,str_mapdownload,ta_middle,@c_white,nil);
 
+   //if(hud_suddend_msg>0)then
+   if(CheckSuddenDeathState)
+   then draw_text(vid_vote_x,vid_suddend_y,2,str_suddendeath,ta_middle,@c_dred,nil);
+
    with sv_clroom^ do
     if(vote_time>0)then
     begin
@@ -334,7 +351,14 @@ begin
          then draw_text(vid_log_hw,hud_pl_staty0,menu_font_scale,str_specmode+str_roomfull                      ,ta_middle,@c_white,@c_black)
          else draw_text(vid_log_hw,hud_pl_staty0,menu_font_scale,str_specmode+str_tojoin+'"'+GetKeyName(a_J)+'"',ta_middle,@c_white,@c_black);
 
-       if(cam_pl<>cl_playeri)then draw_text(vid_log_hw,hud_pl_staty1,menu_font_scale,str_following+g_players[cam_pl].name,ta_middle,@c_white,@c_black);
+       draw_text(vid_log_hw,hud_pl_staty1,menu_font_scale,str_follow_use+' "'+GetKeyName(a_WN)+'/'+GetKeyName(a_WP)+'" '+str_follow_cycle,ta_middle,@c_white,@c_black);
+
+       if(cam_pl<>cl_playeri)then
+         case spec_AutoFollow of
+         0: draw_text(vid_log_hw,hud_pl_staty2,menu_font_scale,str_following +g_players[cam_pl].name,ta_middle,@c_white,@c_black);
+         1: draw_text(vid_log_hw,hud_pl_staty2,menu_font_scale,str_followingk+g_players[cam_pl].name,ta_middle,@c_white,@c_black);
+         2: draw_text(vid_log_hw,hud_pl_staty2,menu_font_scale,str_followingl+g_players[cam_pl].name,ta_middle,@c_white,@c_black);
+         end;
     end
     else
       if(cl_net_cstat>0)or(menu_locmatch)then
@@ -342,10 +366,10 @@ begin
 
    with sv_clroom^ do
     if(demo_cstate=ds_read)and(demo_file<>nil)and(demo_size>0)then
-     Draw_Box(0,vid_log_h-font_hh,round(vid_log_w*FilePos(demo_file^)/demo_size),vid_log_h,@c_yellow,false);
+     Draw_Box(0,vid_h-font_hh,round(vid_w*FilePos(demo_file^)/demo_size),vid_h,@c_yellow,false);
 
    if(player_showtime)then
-    with sv_clroom^ do draw_text(vid_log_hw,vid_log_h-font_h,1,TimeStr(time_sec,time_min),ta_middle,@c_white,@c_black);
+    with sv_clroom^ do draw_text(vid_log_hw,vid_h-font_h,1,TimeStr(time_sec,time_min),ta_middle,@c_white,@c_black);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -376,8 +400,8 @@ end;
 
 procedure draw_Game;
 begin
-   if(hud_gborder_w>0)then
-   draw_box(0,0,vid_log_w,vid_log_rh,@c_daqua,false);
+  // if(hud_gborder_w>0)then
+   //draw_box(0,0,vid_log_w,vid_log_rh,@c_daqua,false);
 
    draw_rc;
    draw_HUD;
@@ -390,7 +414,7 @@ begin
       or(sv_clroom^.time_scorepause>0)
       then draw_scoreboard;
 
-      draw_last_mess;
+      draw_last_message;
    end;
 
    //debug_draw_map;
@@ -430,6 +454,9 @@ end;
 
 procedure G_Draw;
 begin
+   vid_line_blink_n:=(vid_line_blink_n+1) mod fr_fpsh1;
+   vid_line_blink  :=(vid_line_blink_n>fr_fpsh2);
+
    if(scores_save_need)then
    begin
       ClearScreen(@c_black);
@@ -456,8 +483,8 @@ begin
 
    if(player_showfps)then
    begin
-      draw_text(vid_log_w,0 ,1,c2s(fr_FPSSecondC),ta_right,@c_white,@c_black);
-      draw_text(vid_log_w,10,1,c2s(fr_FPSSecondT),ta_right,@c_white,@c_black);
+      draw_text(vid_w,0 ,1,c2s(fr_FPSSecondC),ta_right,@c_white,@c_black);
+      draw_text(vid_w,10,1,c2s(fr_FPSSecondT),ta_right,@c_white,@c_black);
    end;
 
    if(hud_console)

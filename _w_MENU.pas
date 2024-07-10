@@ -104,8 +104,7 @@ begin
 {-}  MenuAddLine(mi_caption                      ,str_mnetwork                 ,''                     );  //-- Network
      MenuAddLine(zi(mi_serversrch,
      (net_socket_port<>net_advertise_port0))     ,str_msvslc                   ,b2yn[net_SearchLocalSV]);
-     MenuAddLine(mi_serverIP                     ,str_msvip                    ,cl_net_svips           );
-     MenuAddLine(mi_ServerPort                   ,str_msvport                  ,cl_net_svps            );
+     MenuAddLine(mi_serverAddr                   ,str_msvaddr                  ,cl_net_svaddr          );
      MenuAddLine(mi_serverupd                    ,str_msvupd                   ,''                     );
      MenuAddLine(mi_servername                   ,str_svname                   ,sv_name                );
      MenuAddLine(mi_serverping                   ,str_svping                   ,sv_ping_str            );
@@ -131,6 +130,7 @@ then MenuAddLine(zi(mi_localwstay ,menu_locmatch
 else MenuAddLine(zi(mi_localwstay ,true         ),str_localwstay               ,b2yn[true       ]      );
      MenuAddLine(zi(mi_fraglimit  ,menu_locmatch),str_localfragl               ,i2s(menu_lslimit)      );
      MenuAddLine(zi(mi_timelimit  ,menu_locmatch),str_localtimel               ,i2s(menu_ltlimit)      );
+     MenuAddLine(zi(mi_botskill   ,menu_locmatch),str_localbskill              ,b2s(menu_BotSkill)     );
      MenuAddLine(zi(mi_localbotT1 ,menu_locmatch),str_teams[0]+str_localbots   ,i2s(menu_lbots[0])     );
      MenuAddLine(zi(mi_localbotT2 ,menu_locmatch),str_teams[1]+str_localbots   ,i2s(menu_lbots[1])     );
      MenuAddLine(zi(mi_localbotT3 ,menu_locmatch),str_teams[2]+str_localbots   ,i2s(menu_lbots[2])     );
@@ -153,9 +153,14 @@ else MenuAddLine(zi(mi_localwstay ,true         ),str_localwstay               ,
      MenuAddLine(mi_chat_sound                   ,str_msndchat                 ,b2yn[player_chat_snd]  );
      MenuAddLine(mi_empty                        ,''                           ,''                     );
 
-{-}  MenuAddLine(mi_caption                      ,str_mvidopt                  ,''                     ); //-- Video options
-     MenuAddLine(mi_resolution                   ,str_mvidres                  ,i2s(vid_rw)+'x'+i2s(vid_rh));
+{-}  MenuAddLine(mi_caption                      ,str_mvidopt                  ,''                     );  //-- Video options
+     MenuAddLine(mi_resolutionw                  ,str_mvidwresw                ,menu_vid_ws            );
+     MenuAddLine(mi_resolutionh                  ,str_mvidwresh                ,menu_vid_hs            );
+     MenuAddLine(zr(mi_resolutiona,
+         (menu_vid_w=vid_w)and(menu_vid_h=vid_h)),str_mvidwresa                ,''                     );
+     MenuAddLine(mi_rcresolution                 ,str_mvidrcres                ,i2s(vid_rw)+'x'+i2s(vid_rh));
      MenuAddLine(mi_fullscreen                   ,str_mvidfscr                 ,b2yn[vid_fullscreen]   );
+     MenuAddLine(mi_hudscale                     ,str_mvidhudsc                ,b2s(hud_scale_prsnt)   );
      MenuAddLine(mi_CameraZ                      ,str_mvidcamh                 ,str_camz[vid_rc_newz]  );
      MenuAddLine(mi_showfps                      ,str_mvidfps                  ,b2yn[player_showfps]   );
      MenuAddLine(mi_maxcorpses                   ,str_mvidmcorps               ,i2s(player_maxcorpses+1));
@@ -163,7 +168,7 @@ else MenuAddLine(zi(mi_localwstay ,true         ),str_localwstay               ,
      MenuAddLine(mi_agrp_reload                  ,str_mvidrgrp                 ,'');
      MenuAddLine(mi_empty                        ,''                           ,'');
 
-{-}  MenuAddLine(mi_caption                      ,str_mnetopt                  ,'');                   //-- Network options
+{-}  MenuAddLine(mi_caption                      ,str_mnetopt                  ,'');                       //-- Network options
      MenuAddLine(mi_netupd                       ,str_mnetupd                  ,str_mnetupds[player_netupd]);
      MenuAddLine(mi_empty                        ,''                           ,'');
 
@@ -202,6 +207,8 @@ else MenuAddLine(zi(mi_localwstay ,true         ),str_localwstay               ,
      MenuAddLine(mi_chat5_key                    ,str_chat5_key                ,GetKeyName(a_C5));     // chat message 5
      MenuAddLine(mi_votey                        ,str_vote_yes                 ,GetKeyName(a_votey));  // chat message 5
      MenuAddLine(mi_voten                        ,str_vote_no                  ,GetKeyName(a_voten));  // chat message 5
+
+     MenuAddLine(mi_caption                      ,str_ccontrol                 ,'');                   //-- Demo playback controls
      MenuAddLine(mi_console                      ,str_mctrsc                   ,GetKeyName(a_CO));     // console
      MenuAddLine(mi_logsnext                     ,str_mctrlgn                  ,GetKeyName(a_LN));     // console next
      MenuAddLine(mi_logsprev                     ,str_mctrlgp                  ,GetKeyName(a_LP));     // console previous
@@ -221,7 +228,7 @@ else MenuAddLine(zi(mi_localwstay ,true         ),str_localwstay               ,
 
      MenuAddLine(mi_empty                        ,''                           ,'');
      MenuAddLine(zr(mi_editor,
-           (cl_net_cstat<>0)or menu_locmatch)     ,str_meditor                  ,'');                   //-- Editor
+          (cl_net_cstat<>0)or menu_locmatch)     ,str_meditor                  ,'');                   //-- Editor
 {-}  MenuAddLine(mi_empty                        ,''                           ,'');
      MenuAddLine(mi_quit                         ,str_mquit                    ,'');                   //-- Quit
 end;
@@ -291,20 +298,22 @@ begin
     mi_agrp_reload  : LoadGFX(true);
     mi_demoupdlist  : demos_RemakeMenuList;
     mi_demorecord   : demo_record:=not demo_record;
-    mi_resolution   : RCResolutionNext(s>-1);
-    mi_localmapr    : menu_reload_maps;
+    mi_rcresolution : RCResolutionNext(s>-1);
+    mi_resolutiona  : if(s= 2)then SetWindowResolution;
+    mi_hudscale     : if(s<>2)then begin _bn(@hud_scale_prsnt ,sign(s)*5,hud_scale_prsnt_min,hud_scale_prsnt_max);ReMakeHUDScales;end;
+    mi_localmapr    : menu_ReloadMaps;
     mi_serversrch   : net_SearchLocalSV:=not net_SearchLocalSV;
-    mi_SoundVolume  : if(s<>2)then
-                             begin _bn(@snd_volume ,sign(s),0,100); snd_volume1:=snd_volume/100;end;
-    mi_MouseSpeed   : if(s<>2)then _in(@m_speed    ,sign(s),1,500);
+    mi_SoundVolume  : if(s<>2)then begin _bn(@snd_volume ,sign(s),0,100); snd_volume1:=snd_volume/100;end;
+    mi_MouseSpeed   : if(s<>2)then _in(@m_speed    ,sign(s),m_speed_min,m_speed_max);
     mi_localgame    : if(s= 2)then begin if(cl_net_cstat>0)then net_Disconnect;StartLocalGame;menu_switch(255);end;
     mi_localmap     : if(menu_locmatch=false)and(s<>2)then MenuMapRoll(s>0);
     mi_fraglimit    : if(menu_locmatch=false)and(s<>2)then with sv_clroom^ do _in(@menu_lslimit,sign(s),0,1000);
     mi_timelimit    : if(menu_locmatch=false)and(s<>2)then with sv_clroom^ do _in(@menu_ltlimit,sign(s),0,60);
-    mi_localbotT1   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[0],sign(s),0,255 );
-    mi_localbotT2   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[1],sign(s),0,255 );
-    mi_localbotT3   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[2],sign(s),0,255 );
-    mi_localbotT4   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[3],sign(s),0,255 );
+    mi_botskill     : if(menu_locmatch=false)and(s<>2)then _bn(@menu_BotSkill,sign(s),1,100);
+    mi_localbotT1   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[0],sign(s),0,255);
+    mi_localbotT2   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[1],sign(s),0,255);
+    mi_localbotT3   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[2],sign(s),0,255);
+    mi_localbotT4   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[3],sign(s),0,255);
     mi_localteams   : if(menu_locmatch=false)then menu_lteams:=not menu_lteams;
     mi_localteamd   : if(menu_locmatch=false)then menu_lteamd:=not menu_lteamd;
     mi_localinsta   : if(menu_locmatch=false)then menu_linsta:=not menu_linsta;
@@ -314,8 +323,10 @@ begin
     mi_serverupd    : if(s=2)then       net_RequestRoomsInfo;
     mi_room         : if(s=2)then begin net_StartConnect(menu_s-menu_roomi);menu_switch(255);end;
     mi_demoplay     : if(s=2)then begin demos_PlayDemo(demos_l[menu_s-menu_demoi]); end;
-    mi_demoreset    : if(s=2)then begin demo_break(sv_clroom,str_demo_MenuReset);sv_clroom^.demo_cstate:=ds_none;end;
+    mi_demoreset    : if(s=2)then begin demo_break(sv_clroom,str_demo_MenuReset,false);sv_clroom^.demo_cstate:=ds_none;end;
     mi_disconnect   : if(s=2)then       net_Disconnect;
+    mi_resolutionw,
+    mi_resolutionh,
     mi_chat1_key,
     mi_chat2_key,
     mi_chat3_key,
@@ -328,8 +339,7 @@ begin
     mi_chat5_str,
     mi_logsnext,
     mi_logsprev,
-    mi_serverIP,
-    mi_ServerPort,
+    mi_serverAddr,
     mi_PlayerName,
     mi_attack,
     mi_forward,
@@ -410,8 +420,9 @@ end;
 procedure menu_check_values;
 begin
    case menu_txtT[menu_sfix] of
-   mi_serverIP  :   ip_txt(@cl_net_svip,@cl_net_svips);
-   mi_ServerPort: port_txt(@cl_net_svp ,@cl_net_svps );
+   mi_serverAddr : txt_ValidateAddr;
+   mi_resolutionw: txt_ValidateWRes;
+   mi_resolutionh: txt_ValidateWRes;
    end;
 end;
 
@@ -487,14 +498,15 @@ a_paste,
 0       : begin
           menu_update:=true;
           case menu_txtT[menu_sfix] of
-mi_serverIP    : textedit(@cl_net_svips,chars_addr   ,15     );
-mi_ServerPort  : textedit(@cl_net_svps ,chars_digits ,5      );
-mi_PlayerName  : textedit(@player_name ,chars_common ,NameLen);
-mi_chat1_str   : textedit(@player_chat1,chars_common ,NameLen);
-mi_chat2_str   : textedit(@player_chat2,chars_common ,NameLen);
-mi_chat3_str   : textedit(@player_chat3,chars_common ,NameLen);
-mi_chat4_str   : textedit(@player_chat4,chars_common ,NameLen);
-mi_chat5_str   : textedit(@player_chat5,chars_common ,NameLen);
+mi_serverAddr  : textedit(@cl_net_svaddr,chars_common ,128);
+mi_PlayerName  : textedit(@player_name  ,chars_common ,NameLen);
+mi_chat1_str   : textedit(@player_chat1 ,chars_common ,NameLen);
+mi_chat2_str   : textedit(@player_chat2 ,chars_common ,NameLen);
+mi_chat3_str   : textedit(@player_chat3 ,chars_common ,NameLen);
+mi_chat4_str   : textedit(@player_chat4 ,chars_common ,NameLen);
+mi_chat5_str   : textedit(@player_chat5 ,chars_common ,NameLen);
+mi_resolutionw : textedit(@menu_vid_ws  ,chars_digits ,6);
+mi_resolutionh : textedit(@menu_vid_hs  ,chars_digits ,6);
           else
           end;
           end;

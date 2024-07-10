@@ -16,9 +16,9 @@ begin
       end;
 
       if(cl_net_cstat>0)or(demo_cstate=ds_read)
-      then G_ClGame
+      then g_ClGame
       else
-        if(cl_mode=clm_game)and(menu_locmatch)then G_SvGame;
+        if(cl_mode=clm_game)and(menu_locmatch)then g_SvGame;
    end;
 
    MakeCameraAndHud;
@@ -80,18 +80,18 @@ begin
    cl_setKeyMenu(a_SS     ,kt_keyboard ,SDLK_PrintScreen ,mi_screenshot  ,0);
    cl_setKeyMenu(a_US     ,kt_keyboard ,SDLK_E           ,mi_use         ,0);
    cl_setKeyMenu(a_CO     ,kt_keyboard ,SDLK_BACKQUOTE   ,mi_console     ,0);
-   cl_setKeyMenu(a_LN     ,kt_mousewh  ,mw_down          ,mi_logsnext    ,2);
-   cl_setKeyMenu(a_LP     ,kt_mousewh  ,mw_up            ,mi_logsprev    ,2);
    cl_setKeyMenu(a_C1     ,kt_keyboard ,SDLK_F1          ,mi_chat1_key   ,0);
    cl_setKeyMenu(a_C2     ,kt_keyboard ,SDLK_F2          ,mi_chat2_key   ,0);
    cl_setKeyMenu(a_C3     ,kt_keyboard ,SDLK_F3          ,mi_chat3_key   ,0);
    cl_setKeyMenu(a_C4     ,kt_keyboard ,SDLK_F4          ,mi_chat4_key   ,0);
    cl_setKeyMenu(a_C5     ,kt_keyboard ,SDLK_F5          ,mi_chat5_key   ,0);
+   cl_setKeyMenu(a_votey  ,kt_keyboard ,SDLK_PageUp      ,mi_votey       ,0);
+   cl_setKeyMenu(a_voten  ,kt_keyboard ,SDLK_PageDown    ,mi_voten       ,0);
+   cl_setKeyMenu(a_LN     ,kt_mousewh  ,mw_down          ,mi_logsnext    ,2);
+   cl_setKeyMenu(a_LP     ,kt_mousewh  ,mw_up            ,mi_logsprev    ,2);
    cl_setKeyMenu(a_dpause ,kt_keyboard ,SDLK_Pause       ,mi_dpause      ,1);
    cl_setKeyMenu(a_dskipb ,kt_keyboard ,SDLK_Left        ,mi_dskipb      ,1);
    cl_setKeyMenu(a_dskipf ,kt_keyboard ,SDLK_Right       ,mi_dskipf      ,1);
-   cl_setKeyMenu(a_votey  ,kt_keyboard ,SDLK_PageUp      ,mi_votey       ,0);
-   cl_setKeyMenu(a_voten  ,kt_keyboard ,SDLK_PageDown    ,mi_voten       ,0);
 
    cl_setKeyMenu(a_menu   ,kt_keyboard ,SDLK_Escape      ,0              ,9);
    cl_setKeyMenu(a_mup1   ,kt_keyboard ,SDLk_Up          ,0              ,9);
@@ -239,13 +239,13 @@ begin
 
    if(not net_UpSocket(sv_net_port,true))then exit;
 
-   net_advertise_ip  :=ip2c(net_advertise_ip0  );
+   net_advertise_ip  :=ip2c(net_advertise_ip0  ,nil);
    net_advertise_port:=swap(net_advertise_port0);
 
    room_loadcfg(sv_room_config_fname);
    {$ENDIF}
 
-   G_Data;
+   g_Data;
 
    fr_init;
 

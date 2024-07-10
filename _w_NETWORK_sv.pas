@@ -133,8 +133,8 @@ begin
 
            gdataw_pdata       (aroom,@pdata_player,nil);
            gdataw_RoomLog     (aroom,@log_n,@pause_logsend,(ping div fr_RateTicksI)+5,nil);
+           gdataw_RoomMissiles(aroom,nil);
            gdataw_RoomItems   (aroom,@mdata_item,nil);
-           gdataw_RoomMissiles(aproom,pf);
 
            net_send(ip,port);
 
@@ -382,7 +382,7 @@ nmid_roomsinfo : begin
 nmid_cl_connect    : if(pid>0)
                      then net_p_connected(pid)
                      else net_p_new;
-nmid_cl_disconnect : if(pid>0)then pl_state(@g_players[pid],ps_none,true);
+nmid_cl_disconnect : if(pid>0)then player_State(@g_players[pid],ps_none,true);
 nmid_cl_chat       : if(pid=0)
                      then net_p_notconnected(net_lastinip,net_lastinport)
                      else

@@ -6,6 +6,7 @@ begin
    case lid of
    log_common     : ;
    log_chat       : logID2Color:=@c_ltlime;
+   log_matchreset,
    log_winner,
    log_endgame    : logID2Color:=@c_yellow;
    log_suddendeath: logID2Color:=@c_red;
@@ -91,23 +92,23 @@ begin
            with log_l[w] do
              _addStr(data_string,logID2Color(data_id));
       end;
-      _addStr(console_str+'|',logID2Color(log_chat));
+      _addStr(console_str+lineCursorBlink,logID2Color(log_chat));
    end;
 
    dx:=0;
    dy:=4;
    if(hud_textn>0)then
    begin
-      draw_box(0,0,vid_log_w,hud_textn*font_lh+dy,@c_console,true);
+      draw_box(0,0,vid_w,hud_textn*font_lh+dy,@c_console,true);
       for p:=0 to hud_textn-1 do
       begin
          draw_text(dx,dy,1,hud_text[p],ta_left,hud_textc[p],nil);
-        dy+=font_lh;
+         dy+=font_lh;
       end;
    end;
 end;
 
-procedure draw_last_mess;
+procedure draw_last_message;
 begin
    if(hud_last_mesn>0)then
    begin
@@ -186,7 +187,7 @@ begin
          player_list[i]:=_pl;
       end;
 
-   draw_box(0,0,vid_log_w,hud_chat_y,@c_ablack,true);
+   draw_box(0,0,vid_w,hud_chat_y,@c_ablack,true);
    dx:=scboard_sx;
    dy:=scboard_sy;
 
@@ -199,12 +200,7 @@ begin
       if(cl_playeri<=MaxPlayers)then
       if(server_ping<10000)
       then draw_line(dx,dy,scboard_btw,str_sb_ping,c2s(server_ping),color)
-      else draw_line(dx,dy,scboard_btw,str_sb_ping,'???',color);
-
-      dy+=font_lh;
-
-      if(time_scorepause>0)then
-      draw_line(dx,dy,scboard_btw,str_sb_resettime,b2s((time_scorepause div fr_fpsx1)+1),color);
+      else draw_line(dx,dy,scboard_btw,str_sb_ping,'???'           ,color);
 
       dy+=font_lh;
 
@@ -217,6 +213,11 @@ begin
 
       if(g_fraglimit>0)then
       draw_line(dx,dy,scboard_btw,str_sb_fraglimit,b2s(g_fraglimit),color);
+
+      dy+=font_lh;
+
+      if(time_scorepause>0)and(demo_cstate<>ds_read)then
+      draw_line(dx,dy,scboard_btw,str_sb_resettime,b2s((time_scorepause div fr_fpsx1)+1),color);
 
       dy+=font_lh*2;
 
@@ -271,7 +272,7 @@ begin
           begin
              dx0+=scboard_col_w;
              dy :=scboard_sy;
-             if(dx0>=vid_log_w)then break;
+             if(dx0>=vid_w)then break;
           end;
           dx:=dx0;
 
@@ -306,7 +307,7 @@ begin
            then str:=b2s(pnum)+':'+name+'('+c2s(ping)+')'
            else str:=name+'('+c2s(ping)+')';
           dx0:=length(str)*font_w+font_w;
-          if((dx+dx0)>vid_log_w)then
+          if((dx+dx0)>vid_w)then
           begin
              dx:=0;
              dy+=font_lh;

@@ -6,13 +6,13 @@ begin
    with aplayer^ do
    begin
       cl_eff_add(x,y,0,1,eid_spawn);
-      PlaySoundSource(snd_spawn,nil,nil,x,y);
+      Sound_PlaySource(snd_spawn,nil,nil,x,y);
    end;
 end;
 
 procedure eff_Shoot(aplayer:PTPlayer);
 begin
-   with aplayer^ do PlaySoundSource(snd_gun[gun_curr],@vx,@vy,0,0);
+   with aplayer^ do Sound_PlaySource(snd_gun[gun_curr],@vx,@vy,0,0);
 end;
 
 procedure eff_Death(aplayer:PTPlayer);
@@ -20,11 +20,11 @@ begin
    with aplayer^ do
    begin
       if(pnum=cl_playeri)
-      then PlaySoundSource(snd_death      ,@vx,@vy,0,0)
+      then Sound_PlaySource(snd_death      ,@vx,@vy,0,0)
       else
         if(gids_death)
-        then PlaySoundSource(snd_meat       ,@vx,@vy,0,0)
-        else PlaySoundSource(snd_skinD[team],@vx,@vy,0,0);
+        then Sound_PlaySource(snd_meat       ,@vx,@vy,0,0)
+        else Sound_PlaySource(snd_skinD[team],@vx,@vy,0,0);
 
       if(gids_death)
       then cl_dead_add(vx,vy,255 )
@@ -32,15 +32,15 @@ begin
    end;
 end;
 
-procedure player_cl_vars(aplayer:PTPlayer);
+procedure player_ClientVars(aplayer:PTPlayer);
 begin
    with aplayer^ do
    if(pnum<>cl_playeri)then
    begin
       if(state<=ps_dead)or(menu_locmatch)or(not player_smooth)then
       begin
-         vx   :=x;
-         vy   :=y;
+         vx  :=x;
+         vy  :=y;
          vdir:=dir;
       end
       else
@@ -54,13 +54,13 @@ begin
       if(state>ps_dead)then
        if(hits<>hits_sound)then
        begin
-          if(hits<hits_sound)then PlaySoundSource(snd_skinP[team],@vx,@vy,0,0);
+          if(hits<hits_sound)then Sound_PlaySource(snd_skinP[team],@vx,@vy,0,0);
           hits_sound:=hits;
        end;
    end;
 end;
 
-procedure player_cl_Death(aplayer:PTPlayer);
+procedure player_ClientDeathEff(aplayer:PTPlayer);
 begin
    with aplayer^ do
    begin
@@ -74,7 +74,7 @@ begin
    end;
 end;
 
-procedure cl_ChatCommand(message:shortstring);
+procedure client_ChatCommand(message:shortstring);
 begin
    if(menu_locmatch)
    then room_log_add(sv_clroom,log_chat,message)
@@ -97,7 +97,7 @@ end;
 
 {$ENDIF}
 
-procedure pl_state(aplayer:PTPlayer;nstate:byte;log:boolean);
+procedure player_State(aplayer:PTPlayer;nstate:byte;log:boolean);
 var pstr,
     str2: shortstring;
    {$IFDEF FULLGAME}
@@ -183,7 +183,7 @@ begin
 end;
 
 
-function RoomCollisionXY(aroom:PTRoom;x,y,px,py:single):byte;
+function room_CollisionXY(aroom:PTRoom;x,y:single):byte;
 var gx,
     gy:integer;
     c :char;
@@ -192,22 +192,22 @@ begin
    gy:=trunc(y);
    if(0<gx)and(gx<map_mlw)and(0<gy)and(gy<map_mlw)then
    begin
-      RoomCollisionXY:=0;
+      room_CollisionXY:=0;
       c:=aroom^.rgrid[gx,gy];
-      if(c in mgr_dwalls)then RoomCollisionXY:=1;
-      if(c in mgr_bwalls)then RoomCollisionXY:=2;
-      if(c=mgr_wih      )then RoomCollisionXY:=3;
+      if(c in mgr_dwalls)then room_CollisionXY:=1;
+      if(c in mgr_bwalls)then room_CollisionXY:=2;
+      if(c=mgr_wih      )then room_CollisionXY:=3;
    end
-   else RoomCollisionXY:=4;
+   else room_CollisionXY:=4;
 end;
 
 function BWallHit(aroom:PTRoom;psx,psy,bsx,bsy:single):byte;
 begin
-   BWallHit:=RoomCollisionXY(aroom,bsx,bsy,psx,psy);
+   BWallHit:=room_CollisionXY(aroom,bsx,bsy);
 
    if(BWallHit<2)then
      if(abs(trunc(psx)-trunc(bsx))=1)
-    and(abs(trunc(bsy)-trunc(psy))=1)then BWallHit:=max2(RoomCollisionXY(aroom,bsx,psy,psx,psy),RoomCollisionXY(aroom,psx,bsy,psx,psy));
+    and(abs(trunc(bsy)-trunc(psy))=1)then BWallHit:=max2(room_CollisionXY(aroom,bsx,psy),room_CollisionXY(aroom,psx,bsy));
 end;
 
 function collision_line(aroom:PTRoom;x0,y0,x1,y1:single):boolean;
@@ -245,21 +245,21 @@ begin
    if(cs^>map_pb)then cs^:=map_pb;
 end;
 begin
-   if(RoomCollisionXY(aroom,nx-width,cy^-width,cx^,cy^)<m)
-  and(RoomCollisionXY(aroom,nx-width,cy^+width,cx^,cy^)<m)
-  and(RoomCollisionXY(aroom,nx+width,cy^+width,cx^,cy^)<m)
-  and(RoomCollisionXY(aroom,nx+width,cy^-width,cx^,cy^)<m)then cx^:=nx;
+   if(room_CollisionXY(aroom,nx-width,cy^-width)<m)
+  and(room_CollisionXY(aroom,nx-width,cy^+width)<m)
+  and(room_CollisionXY(aroom,nx+width,cy^+width)<m)
+  and(room_CollisionXY(aroom,nx+width,cy^-width)<m)then cx^:=nx;
 
-   if(RoomCollisionXY(aroom,cx^-width,ny-width,cx^,cy^)<m)
-  and(RoomCollisionXY(aroom,cx^-width,ny+width,cx^,cy^)<m)
-  and(RoomCollisionXY(aroom,cx^+width,ny+width,cx^,cy^)<m)
-  and(RoomCollisionXY(aroom,cx^+width,ny-width,cx^,cy^)<m)then cy^:=ny;
+   if(room_CollisionXY(aroom,cx^-width,ny-width)<m)
+  and(room_CollisionXY(aroom,cx^-width,ny+width)<m)
+  and(room_CollisionXY(aroom,cx^+width,ny+width)<m)
+  and(room_CollisionXY(aroom,cx^+width,ny-width)<m)then cy^:=ny;
 
    SetMapBorder(cx);
    SetMapBorder(cy);
 end;
 
-procedure PlayerMove(aroom:PTRoom;cur_x,cur_y:psingle;dir,width:single;spec:boolean);
+procedure player_Move(aroom:PTRoom;cur_x,cur_y:psingle;dir,width:single;spec:boolean);
 var new_x,new_y,d:single;
 begin
    if(aroom^.time_scorepause>0)then exit;
@@ -273,7 +273,7 @@ begin
    else SetNewXY(aroom,cur_x,cur_y,new_x,new_y,width,1);
 end;
 
-procedure PlayerMoveToSpawn(aplayer:PTPlayer);
+procedure player_MoveToSpawn(aplayer:PTPlayer);
 var s:integer;
 begin
    with aplayer^ do
@@ -295,20 +295,20 @@ begin
      end;
 end;
 
-function PlayerRespawn(aplayer:PTPlayer;forse:boolean):boolean;
+function player_Respawn(aplayer:PTPlayer;forse:boolean):boolean;
 begin
-   PlayerRespawn:=false;
+   player_Respawn:=false;
    with aplayer^ do
     if(pause_resp=0)or(forse)then
      with room^ do
       if(time_scorepause=0)then
       begin
-         PlayerMoveToSpawn(aplayer);
+         player_MoveToSpawn(aplayer);
 
          FillChar(ammo,SizeOf(ammo),0);
          armor  :=0;
          gun_rld:=0;
-         pl_state(aplayer,ps_walk,true);
+         player_State(aplayer,ps_walk,true);
 
          if(Room_CheckFlag(room,sv_g_instagib))then
          begin
@@ -327,18 +327,18 @@ begin
             gun_curr:=1;
          end;
          //ammo[ammo_flame]:=250;
-         gun_next     :=gun_curr;
-         pause_resp   :=fr_fpsh1;
-         PlayerRespawn:=true;
-         bot_enemy    :=0;
+         gun_next      :=gun_curr;
+         pause_resp    :=fr_fpsh1;
+         player_Respawn:=true;
+         bot_enemy     :=0;
       end;
 end;
 
-function PlayerDamage(aplayer:PTPlayer;damage:integer):boolean;
+function player_Damage(aplayer:PTPlayer;damage:integer):boolean;
 var dmg_armor,
     dmg_hits :integer;
 begin
-   PlayerDamage:=false;
+   player_Damage:=false;
    with aplayer^ do
    if(room^.time_scorepause=0)then
    begin
@@ -355,27 +355,28 @@ begin
       hits-=dmg_hits;
       if(hits<=0)then
       begin
-         gids_death:=(hits<=gibs_hits);
-         pl_state(aplayer,ps_dead,true);
-         hits        :=0;
-         PlayerDamage:=true;
-         pause_resp  :=fr_fpsx1;
+         gids_death   :=(hits<=gibs_hits);
+         player_State(aplayer,ps_dead,true);
+         hits         :=0;
+         player_Damage:=true;
+         pause_resp   :=fr_fpsx1;
       end;
    end;
 end;
 
-procedure PlayerReset(aplayer:PTPlayer);
+procedure player_Reset(aplayer:PTPlayer);
 begin
    with aplayer^ do
     if(state>ps_spec)then
     begin
-       //PlayerRespawn(aplayer,true);
-       PlayerDamage(aplayer,1000);
+       //player_Respawn(aplayer,true);
+       player_Damage(aplayer,1000);
+       death_time:=pause_resp;
        frags:=0;
     end;
 end;
 
-procedure PlayerSpecJoin(aplayer:PTPlayer);
+procedure player_SpecJoin(aplayer:PTPlayer);
 begin
    with aplayer^ do
    with room^ do
@@ -383,7 +384,7 @@ begin
      if(state=ps_spec)then
      begin
         if(cur_players<max_players)then
-         if(PlayerRespawn(aplayer,false))then
+         if(player_Respawn(aplayer,false))then
          begin
             frags:=0;
             pause_spec:={$IFDEF FULLGAME}2{$ELSE}fr_fpsx1{$ENDIF};
@@ -392,7 +393,7 @@ begin
      else
      begin
         frags:=0;
-        pl_state(aplayer,ps_spec,true);
+        player_State(aplayer,ps_spec,true);
         pause_spec:={$IFDEF FULLGAME}2{$ELSE}fr_fpsx1{$ENDIF};
      end;
 end;
@@ -420,7 +421,7 @@ begin
    end;
 end;
 
-function PlayerInPoint(px,py:single;aroomi:integer;phs:PTPlayerHitSet{$IFNDEF FULLGAME};stepback:word{$ENDIF}):PTPlayer;
+function player_FindInPoint(tar_x,tar_y:single;aroomi:integer;phs:PTPlayerHitSet{$IFNDEF FULLGAME};stepback:word{$ENDIF}):PTPlayer;
 var p,
     byt,
     bit:byte;
@@ -430,7 +431,7 @@ _sty:single;
 i,b :byte;
 {$ENDIF}
 begin
-   PlayerInPoint:=nil;
+   player_FindInPoint:=nil;
 
    {$IFNDEF FULLGAME}
    if(stepback>MaxXYBuffer)then stepback:=MaxXYBuffer;
@@ -462,24 +463,30 @@ begin
          _sty:=y;
          {$ENDIF}
 
-         if(abs(px-_stx)<Player_BWidth)
-        and(abs(py-_sty)<Player_BWidth)then
+         if(abs(tar_x-_stx)<Player_BWidth)
+        and(abs(tar_y-_sty)<Player_BWidth)then
          begin
-            PlayerInPoint:=@g_players[p];
+            player_FindInPoint:=@g_players[p];
             if(phs<>nil)then SetBBit(@phs^[byt],bit,true);
             break;
          end;
       end;
 end;
 
-function IncFrags(aplayer:PTPlayer;TeamPlay,TeamKill:boolean):boolean;
+function player_IncFrags(aplayer:PTPlayer;TeamPlay,TeamKill:boolean):boolean;
 begin
-   IncFrags:=false;
+   player_IncFrags:=false;
    with aplayer^ do
    begin
       if(TeamPlay)and(TeamKill)
       then frags-=1
-      else frags+=1;
+      else
+      begin
+         frags+=1;
+         {$IFDEF FULLGAME}
+         spec_LastFrager:=pnum;
+         {$ENDIF}
+      end;
 
       with room^ do
       begin
@@ -493,13 +500,13 @@ begin
           begin
              room_log_add(room,log_endgame,str_fraglimithit);
              Room_Score(room);
-             IncFrags:=true;
+             player_IncFrags:=true;
           end;
       end;
    end;
 end;
 
-procedure PlayerShot_Bullet(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshoot:boolean{$ENDIF});
+procedure player_BulletShot(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshoot:boolean{$ENDIF});
 const init_dstep = 0.25;
 var d,sx,sy,
     dstep,
@@ -580,11 +587,11 @@ begin
          if(max_dist<=0)then break;
 
          {$IFDEF FULLGAME}
-         tpl:=PlayerInPoint(bsx,bsy,roomi,@phs);
+         tpl:=player_FindInPoint(bsx,bsy,roomi,@phs);
          {$ELSE}
          if(antilag)
-         then tpl:=PlayerInPoint(bsx,bsy,roomi,@phs,round(ping/fr_RateTicks))
-         else tpl:=PlayerInPoint(bsx,bsy,roomi,@phs,0);
+         then tpl:=player_FindInPoint(bsx,bsy,roomi,@phs,round(ping/fr_RateTicks))
+         else tpl:=player_FindInPoint(bsx,bsy,roomi,@phs,0);
          {$ENDIF}
 
          if(tpl<>nil)then
@@ -594,10 +601,10 @@ begin
             if(not fakeshoot)then
             {$ENDIF}
               if(not teams)or(Room_CheckFlag(room,sv_g_teamdamage))or(team<>tpl^.team)then
-               if(PlayerDamage(tpl,damage))then
+               if(player_Damage(tpl,damage))then
                begin
                   room_log_add(room,log_common,name+' > '+gun_name[gun_curr]+' > '+tpl^.name);
-                  if(IncFrags(aplayer,teams,team=tpl^.team))then exit;
+                  if(player_IncFrags(aplayer,teams,team=tpl^.team))then exit;
                end;
 
             if(rail=false)then break;
@@ -606,7 +613,7 @@ begin
    end;
 end;
 
-procedure PlayerShot_Missile(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF});
+procedure player_MissileShot(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF});
 var mi : word;
 rdir   : single;
 begin
@@ -674,9 +681,9 @@ gpt_rocket: with room^ do
    end;
 end;
 
-function MissileProc(aroom:PTRoom;amissile:PTMissile):boolean;
-var px,
-    py,
+function missile_Proc(aroom:PTRoom;amissile:PTMissile):boolean;
+var pmx,
+    pmy,
     ds  : single;
     pl  : byte;
 damage  : integer;
@@ -688,7 +695,7 @@ begin
    CheckCollision:=true;
    with amissile^ do
    begin
-      if(BWallHit(aroom,px,py,mx,my)>1)then
+      if(BWallHit(aroom,pmx,pmy,mx,my)>1)then
       begin
          mx-=mvx;
          my-=mvy;
@@ -705,18 +712,18 @@ begin
    CheckCollision:=false;
 end;
 begin
-   MissileProc:=false;
+   missile_Proc:=false;
    with amissile^ do
    if(mtype>0)then
    begin
       if(mdamage<=0)then
       begin
-         MissileProc:=true;
+         missile_Proc:=true;
          exit;
       end;
 
-      px:=mx;
-      py:=my;
+      pmx:=mx;
+      pmy:=my;
       mx+=mvx;
       my+=mvy;
       mmaxdist-=mspeed;
@@ -726,7 +733,7 @@ begin
          attacker:=@g_players[mplayer];
          with attacker^ do teams:=Room_CheckFlag(room,sv_g_teams);
 
-         MissileProc:=true;
+         missile_Proc:=true;
 
          for pl:=0 to MaxPlayers do
           with g_players[pl] do
@@ -755,7 +762,7 @@ begin
               or(Room_CheckFlag(room,sv_g_teamdamage))
               or(team<>attacker^.team)
               or(pl=mplayer)then
-               if(PlayerDamage(@g_players[pl],damage))then
+               if(player_Damage(@g_players[pl],damage))then
                begin
                   if(mgun<=WeaponsN)then
                   begin
@@ -767,14 +774,14 @@ begin
                     if(pl=mplayer)
                     then room_log_add(room,log_common,attacker^.name+str_fsplit+str_suicide)
                     else room_log_add(room,log_common,attacker^.name+str_fsplit+name       );
-                  if(IncFrags(attacker,teams or(pl=mplayer),team=attacker^.team))or(msplashr=0)then exit;
+                  if(player_IncFrags(attacker,teams or(pl=mplayer),team=attacker^.team))or(msplashr=0)then exit;
                end;
            end;
       end;
    end;
 end;
 
-procedure PlayerShot_Tesla(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF});
+procedure player_TeslaShot(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF});
 var
 pl    : byte;
 ax,ay,
@@ -782,10 +789,12 @@ bx,by,
 tdir,
 dist,
 fov     : single;
-b,i     : byte;
-stepback: word;
 damage  : integer;
 teams   : boolean;
+{$IFNDEF FULLGAME}
+b,i     : byte;
+stepback: word;
+{$ENDIF}
 begin
    with aplayer^ do
    begin
@@ -796,7 +805,9 @@ begin
       ay      :=y;
       tdir    :=dir;
       teams   :=Room_CheckFlag(room,sv_g_teams);
+      {$IFNDEF FULLGAME}
       stepback:=round(ping/fr_RateTicks) ;
+      {$ENDIF}
    end;
    for pl:=0 to MaxPlayers do
     with g_players[pl] do
@@ -807,9 +818,9 @@ begin
         begin
            b:=ibuffer;
            for i:=1 to stepback do
-            if(b=0)
-            then b:=MaxXYBuffer
-            else b-=1;
+             if(b=0)
+             then b:=MaxXYBuffer
+             else b-=1;
            bx:=xbuffer[b];
            by:=ybuffer[b];
         end
@@ -835,17 +846,17 @@ begin
            tesla_eff:=tesla_eff_time;
            if(fakeshot)then continue;
            {$ENDIF}
-           if(PlayerDamage(@g_players[pl],damage))then
+           if(player_Damage(@g_players[pl],damage))then
            begin
               room_log_add(room,log_common,aplayer^.name+str_fsplit+gun_name[aplayer^.gun_curr]+str_fsplit+name);
-              if(IncFrags(aplayer,teams,team=aplayer^.team))then continue;
+              if(player_IncFrags(aplayer,teams,team=aplayer^.team))then continue;
            end;
         end;
      end;
 
 end;
 
-procedure PlayerShoot(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF});
+procedure player_Shot(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF});
 begin
    with aplayer^ do
     if(gun_rld=0)and(state>ps_dead)then
@@ -853,10 +864,10 @@ begin
      begin
         gun_rld:=gun_reload[gun_curr];
         case gun_btype[gun_curr] of
-gpt_bullet : PlayerShot_Bullet (aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
+gpt_bullet : player_BulletShot (aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
 gpt_fire,
-gpt_rocket : PlayerShot_Missile(aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
-gpt_tesla  : PlayerShot_Tesla  (aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
+gpt_rocket : player_MissileShot(aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
+gpt_tesla  : player_TeslaShot  (aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
         end;
         {$IFDEF FULLGAME}
         eff_Shoot(aplayer);
@@ -864,9 +875,9 @@ gpt_tesla  : PlayerShot_Tesla  (aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
      end;
 end;
 
-function PlayerAttack(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF}):boolean;
+function player_Attack(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF}):boolean;
 begin
-   PlayerAttack:=false;
+   player_Attack:=false;
    with aplayer^ do
     if(gun_rld=0)and(state>ps_dead)and(pause_gun=0)then
      with room^ do
@@ -876,7 +887,7 @@ begin
          begin
             if(ammo[gun_ammot[gun_curr]]<gun_ammog[gun_curr])then
             begin
-               PlayerAttack:=true;
+               player_Attack:=true;
                exit;
             end;
             {$IFDEF FULLGAME}
@@ -884,11 +895,11 @@ begin
             {$ENDIF}
             ammo[gun_ammot[gun_curr]]-=gun_ammog[gun_curr];
          end;
-         PlayerShoot(aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
+         player_Shot(aplayer{$IFDEF FULLGAME},fakeshot{$ENDIF});
       end;
 end;
 
-procedure PlayerWeaponSwitch(aplayer:PTPlayer);
+procedure player_WeaponSwitch(aplayer:PTPlayer);
 begin
    with aplayer^ do
     if(gun_next>WeaponsN)
@@ -903,31 +914,30 @@ end;
 
 {$INCLUDE _w_BOTZ.pas}
 
-function item_proc(ap,cp:pinteger;mp,c:integer):boolean;
+function player_ItemPickup(aplayer:PTPlayer;i:word;c:integer):boolean;
+var w:byte;
+function item_Proc(ap,cp:pinteger;mp,c:integer):boolean;
 var np:integer;
 begin
-   item_proc:=false;
+   item_Proc:=false;
 
    np:=ap^*c;
    if(np>0)and(cp^<mp)then
    begin
       cp^:=min2(cp^+np,mp);
-      item_proc:=true;
+      item_Proc:=true;
    end;
 end;
-
-function pl_item(aplayer:PTPlayer;i:word;c:integer):boolean;
-var w:byte;
 begin
-   pl_item:=false;
+   player_ItemPickup:=false;
    with aplayer^ do
    with room^ do
    with r_item_l[i] do
    begin
       for w:=0 to AmmoTypesN do
-      if item_proc(@iammo[w],@ammo[w],Player_max_ammo[w],c)then pl_item:=true;
-      if item_proc(@ihealth ,@hits   ,Player_max_hits   ,1)then pl_item:=true;
-      if item_proc(@iarmor  ,@armor  ,Player_max_armor  ,1)then pl_item:=true;
+      if item_Proc(@iammo[w],@ammo[w],Player_max_ammo[w],c)then player_ItemPickup:=true;
+      if item_Proc(@ihealth ,@hits   ,Player_max_hits   ,1)then player_ItemPickup:=true;
+      if item_Proc(@iarmor  ,@armor  ,Player_max_armor  ,1)then player_ItemPickup:=true;
    end;
 end;
 
@@ -943,10 +953,10 @@ begin
     end;
 end;
 
-procedure pl_items(aplayer:PTPlayer);
-const ammo_multiplier: array[false..true] of integer = (4,1);
+procedure player_Items(aplayer:PTPlayer);
 var i:word;
     w:byte;
+    m:integer;
 begin
    with aplayer^ do
     with room^ do
@@ -957,6 +967,13 @@ begin
          if(abs(ix-x)<Player_IWidth)
         and(abs(iy-y)<Player_IWidth)then
          begin
+            if(not Room_CheckFlag(room,sv_g_itemrespawn))
+            then m:=4
+            else
+              if(Room_CheckFlag(room,sv_g_weaponstay))and(iweapon>0)
+              then m:=2
+              else m:=1;
+
             if(iweapon>0)then
             begin
                w:=gun_inv or iweapon;
@@ -970,7 +987,7 @@ begin
                   then irespt:=irespm
                   else
                   begin
-                     pl_item(aplayer,i,ammo_multiplier[Room_CheckFlag(room,sv_g_itemrespawn)]);
+                     player_ItemPickup(aplayer,i,m);
                      continue;
                   end;
                end
@@ -978,11 +995,11 @@ begin
                  if(not Room_CheckFlag(room,sv_g_itemrespawn))or(Room_CheckFlag(room,sv_g_weaponstay))then continue;
             end;
 
-            if(pl_item(aplayer,i,ammo_multiplier[Room_CheckFlag(room,sv_g_itemrespawn)]))then irespt:=irespm;
+            if(player_ItemPickup(aplayer,i,m))then irespt:=irespm;
          end;
 end;
 
-procedure G_SvPlayers;
+procedure g_SvPlayers;
 var  p:byte;
 player:PTPlayer;
 begin
@@ -1010,11 +1027,11 @@ begin
            if(room^.time_scorepause=0)then
            begin
               ttl+=1;
-              if(ttl>=MaxPlayerTTL)then pl_state(player,ps_none,true);
+              if(ttl>=MaxPlayerTTL)then player_State(player,ps_none,true);
               if(net_moves<fr_fpsx2)then net_moves+=1;
            end;
          {$ELSE};
-         player_cl_vars(player);
+         player_ClientVars(player);
          if(tesla_eff>0)then tesla_eff-=1;
          {$ENDIF};
 
@@ -1022,19 +1039,19 @@ begin
          begin
             if(state>ps_dead)then
             begin
-               if(Room_CheckFlag(room,sv_g_instagib)=false)then pl_items(player);
+               if(not Room_CheckFlag(room,sv_g_instagib))then player_Items(player);
 
-               PlayerWeaponSwitch(player);
+               player_WeaponSwitch(player);
             end;
             if(state=ps_dead)then
              if(death_time>0)then
              begin
                 death_time-=1;
-                if(death_time=0)then PlayerRespawn(player,true);
+                if(death_time=0)then player_Respawn(player,true);
              end;
          end;
          {$IFDEF FULLGAME}
-         if(state=ps_dead)then player_cl_Death(player);
+         if(state=ps_dead)then player_ClientDeathEff(player);
          {$ELSE}
          player_xybuffer(player);
          {$ENDIF}
@@ -1042,7 +1059,7 @@ begin
    end;
 end;
 
-procedure pl_NextWeapon(aplayer:PTPlayer;next:boolean);
+procedure player_NextWeapon(aplayer:PTPlayer;next:boolean);
 var cw:byte;
 begin
    with aplayer^ do
@@ -1068,7 +1085,7 @@ begin
    end;
 end;
 
-procedure G_SvDoClientAction(aplayer:PTPlayer;aid:byte);
+procedure g_SvDoClientAction(aplayer:PTPlayer;aid:byte);
 begin
    with aplayer^ do
     case aid of
@@ -1080,18 +1097,18 @@ aid_w5,
 aid_w6,
 aid_w7,
 aid_w8       : gun_next:=aid-aid_w1;
-aid_wN       : pl_NextWeapon(aplayer,true );
-aid_wP       : pl_NextWeapon(aplayer,false);
-aid_specjoin : PlayerSpecJoin(aplayer);
+aid_wN       : player_NextWeapon(aplayer,true );
+aid_wP       : player_NextWeapon(aplayer,false);
+aid_specjoin : player_SpecJoin(aplayer);
 aid_attack   : if(state>ps_dead)
-               then PlayerAttack(aplayer{$IFDEF FULLGAME},false{$ENDIF})
+               then player_Attack(aplayer{$IFDEF FULLGAME},false{$ENDIF})
                else
-                 if(state=ps_dead)then PlayerRespawn(aplayer,false);
+                 if(state=ps_dead)then player_Respawn(aplayer,false);
     end;
 
 end;
 
-procedure G_SvRooms;
+procedure g_SvRooms;
 var r:byte;
  room:PTRoom;
 begin
@@ -1132,15 +1149,15 @@ begin
    end;
 end;
 
-procedure G_SvGame;
+procedure g_SvGame;
 begin
-   G_SvRooms;
-   G_SvPlayers;
+   g_SvRooms;
+   g_SvPlayers;
 end;
 
 
 {$IFNDEF FULLGAME}
-procedure PlayerBan(pid:byte;time:cardinal;admin:byte;comment:shortstring);
+procedure player_Ban(pid:byte;time:cardinal;admin:byte;comment:shortstring);
 begin
    if(pid<=MaxPlayers)and(pid<>admin)then
    with g_players[pid] do
@@ -1156,7 +1173,7 @@ begin
         if(length(comment)>0)
         then net_add_ban(ip,time,name+': '+comment)
         else net_add_ban(ip,time,name);
-      pl_state(@g_players[pid],ps_none,true);
+      player_State(@g_players[pid],ps_none,true);
    end;
 end;
 
@@ -1215,7 +1232,7 @@ begin
    if(argn>0)then
    case argl[0] of
 {$IFDEF FULLGAME}
-'say'            : cl_ChatCommand(sumargs(1));
+'say'            : client_ChatCommand(sumargs(1));
 'quit'           : sys_cycle:=false;
 'rcon_password'  : if(argn>1)then
                    begin
@@ -1224,21 +1241,31 @@ begin
                    end;
 'maplistshow'    : GameParseCommand:=false;
 'showplayersid'  : show_player_id:=not show_player_id;
+'followkiller'   : begin spec_AutoFollow:=1;if(hud_console)then ToggleConsole;end;
+'followleader'   : begin spec_AutoFollow:=2;if(hud_console)then ToggleConsole;end;
     else
        if(not menu_locmatch)or(cl_net_cstat>cstate_none)
        then GameParseCommand:=false
        else
        case argl[0] of
        cmd_map          : if(argn>1)then room_MapByName(sv_clroom,argl[1]);
-       cmd_mapnext      : room_MapNext(sv_clroom);
+       cmd_mapnext      : room_MapNext   (sv_clroom);
        cmd_matchreset   : room_MatchReset(sv_clroom);
-       cmd_matchend     : Room_Score(sv_clroom);
-       'botadd'         : if(argn>1)
-                          then Room_BotAdd(sv_clroom,argl[1])
-                          else Room_BotAdd(sv_clroom,'');
+       cmd_matchend     : Room_Score     (sv_clroom);
+       cmd_botadd       : if(argn>2)
+                          then Room_BotAdd(sv_clroom,s2b(argl[1]),argl[2])
+                          else
+                            if(argn>1)
+                            then Room_BotAdd(sv_clroom,s2b(argl[1])                ,'')
+                            else Room_BotAdd(sv_clroom,sv_clroom^.bot_skill_default,'');
        'botkickall'     : if(argn>1)
                           then Room_BotKickAll(sv_clroom,argl[1])
                           else Room_BotKickAll(sv_clroom,'');
+       rcfg_fraglimit   : if(argn>1)then with sv_clroom^ do begin g_fraglimit :=mm3i(0,s2i(argl[1]),32000);      room_log_add(sv_clroom,log_roomdata,rcfg_fraglimit +'='+i2s(g_fraglimit)   );end;
+       rcfg_timelimit   : if(argn>1)then with sv_clroom^ do begin g_timelimit :=mm3w(0,s2b(argl[1]),60   );      room_log_add(sv_clroom,log_roomdata,rcfg_timelimit +'='+c2s(g_timelimit)   );end;
+       rcfg_flags       : if(argn>1)then with sv_clroom^ do begin g_flags     :=str2RFlags(argl[1]);             room_log_add(sv_clroom,log_roomdata,rcfg_flags     +'='+RFlags2str(g_flags));end;
+       rcfg_resettime   : if(argn>1)then with sv_clroom^ do g_scorepause      :=mm3w(5,s2b(argl[1]),60 )*fr_fpsx1;
+       rcfg_deathtime   : if(argn>1)then with sv_clroom^ do g_deathtime       :=mm3w(0,s2b(argl[1]),60 )*fr_fpsx1;
        else
        GameParseCommand:=false;
        end;
@@ -1304,15 +1331,18 @@ begin
          'maplistadd'  : if(argn>2)then
                           for i:=2 to argn-1 do room_MapListAdd(room,argl[i]);
          'maplistclear': begin maplist_n:=1;setlength(maplist_l,maplist_n);maplist_l[0]:=0; end;
-         'banadd'      : if(argn>2)then PlayerBan(s2b(argl[2]),$FFFFFFFF,pid,sumargs(3));
+         'banadd'      : if(argn>2)then player_Ban(s2b(argl[2]),$FFFFFFFF,pid,sumargs(3));
          'banremove'   : if(argn>2)then net_del_ban(s2w(argl[2]));
-         'kick'        : if(argn>2)then PlayerBan(s2b(argl[2]),fr_fpsx1,pid,sumargs(3));
+         'kick'        : if(argn>2)then player_Ban(s2b(argl[2]),fr_fpsx1,pid,sumargs(3));
          'botkickall'  : if(argn>2)
                          then Room_BotKickAll(room,argl[2])
                          else Room_BotKickAll(room,'');
-         'botadd'      : if(argn>2)
-                         then Room_BotAdd(room,argl[2])
-                         else Room_BotAdd(room,'');
+         cmd_botadd    : if(argn>3)
+                         then Room_BotAdd(room,s2b(argl[2]),argl[3])
+                         else
+                           if(argn>2)
+                           then Room_BotAdd(room,s2b(argl[2])           ,'')
+                           else Room_BotAdd(room,room^.bot_skill_default,'');
          'banshowall'  : net_send_bans(ip,port);
          'cancelvote'  : begin
                          room_log_add(room,log_local,name+str_votecancel);
@@ -1338,7 +1368,7 @@ begin
   {$ENDIF}
 end;
 
-procedure G_Data;
+procedure g_Data;
 const gun_min_rld = fr_fpsx1 div 5;
 var g,s:byte;
 begin
@@ -1350,6 +1380,9 @@ begin
       if(s<gun_reload  [g])
       then gun_reload_s[g]:=gun_reload[g]-s
       else gun_reload_s[g]:=0;
+
+      gun_antilag[g]:=(gun_btype[g]=gpt_bullet)or
+                      (gun_btype[g]=gpt_tesla );
    end;
    bot_Init;
 end;
@@ -1358,7 +1391,7 @@ end;
 
 procedure console_TAB;
 const
-cmd_num = 40;
+cmd_num = 47;
 cmd_all : array[0..cmd_num] of shortstring = (
 'quit',
 'maplistshow',
@@ -1377,7 +1410,7 @@ cmd_voteno,
 'rcon '+rcfg_timelimit,
 'rcon '+rcfg_flags,
 'rcon '+rcfg_voteratio,
-'rcon botadd',
+'rcon '+cmd_botadd,
 'rcon botkickall',
 'rcon '+rcfg_resettime,
 'rcon '+rcfg_deathtime,
@@ -1398,9 +1431,16 @@ cmd_voteno,
 'matchreset',
 'matchend',
 'showplayersid',
-'botadd',
+cmd_botadd,
 'botkickall',
-'say'
+'say',
+rcfg_fraglimit,
+rcfg_timelimit,
+rcfg_flags,
+rcfg_resettime,
+rcfg_deathtime,
+'followkiller',
+'followleader'
 );
 cmd_options : array[0..cmd_num] of shortstring = (
 '',
@@ -1420,7 +1460,7 @@ cmd_options : array[0..cmd_num] of shortstring = (
 '<0-59, minutes>',
 '<ITRWDMV>',
 '<0-100>',
-'[ss,mu,so,of]',
+'[1-100] [ss,mu,so,of]',
 '',
 '<5-60, seconds>',
 '<0-60, seconds>',
@@ -1441,14 +1481,22 @@ cmd_options : array[0..cmd_num] of shortstring = (
 '',
 '',
 '',
-'[ss,mu,so,of]',
+'[1-100] [ss,mu,so,of]',
 '',
-'<string>'
+'<string>',
+'<0-32000>',
+'<0-59, minutes>',
+'<ITRWDMVOS>',
+'<5-60, seconds>',
+'<0-60, seconds>',
+'',
+''
 );
-var i,n:integer;
-    l:byte;
+var
+i,n   : integer;
+l     : byte;
 ccmdp,
-ccmds:array of shortstring;
+ccmds : array of shortstring;
 begin
    n:=0;
    setlength(ccmds,n);
@@ -1493,7 +1541,7 @@ procedure StartLocalGame;
 var lplayer:PTPlayer;
 begin
    ResetLocalGame;
-   demo_break(sv_clroom,'');
+   demo_break(sv_clroom,'',false);
    sv_clroom^.demo_cstate:=ds_none;
    if(menu_locmatch)
    then menu_locmatch:=false
@@ -1510,19 +1558,23 @@ begin
          if(menu_wstay )then g_flags:=g_flags or sv_g_weaponstay;
          g_fraglimit  :=menu_lslimit;
          g_timelimit  :=menu_ltlimit;
+         bot_skill_default:=menu_BotSkill;
          bot_maxt     :=menu_lbots;
-         map_cur         :=menu_bmm;
-         maplist_n     :=1;
+         map_cur      :=menu_bmm;
+         maplist_n    :=1;
          setlength(maplist_l,maplist_n);
-         maplist_l[0]   :=menu_bmm;
+         maplist_l[0] :=menu_bmm;
       end;
 
       cl_playeri:=net_NewPlayer(0,0,sv_clroom^.rnum,player_name,player_team,false,false);
       cam_pl    :=cl_playeri;
       lplayer   :=@g_players[cl_playeri];
 
-      pl_state(lplayer,ps_spec,true);
-      PlayerMoveToSpawn(lplayer);
+      player_State(lplayer,ps_spec,true);
+      player_MoveToSpawn(lplayer);
+
+      spec_AutoFollow:=0;
+      spec_LastFrager:=0;
 
       menu_locmatch:=true;
    end;
@@ -1548,39 +1600,39 @@ begin
       begin
          if(hits<hud_hits)then
          begin
-            hud_mask_t:=(hud_hits-hits)*2;
+            hud_mask_t:=min2(75,(hud_hits-hits)*2);
             with hud_mask do begin r:=255;g:=0;  b:=0  ;end;
          end;
          if(hits>hud_hits)then
          begin
             hud_mask_t:=fr_fpsh1;
             with hud_mask do begin r:=0;  g:=0;  b:=255;end;
-            PlaySoundSource(snd_health,@cam_x,@cam_y,0,0);
+            Sound_PlaySource(snd_health,@cam_x,@cam_y,0,0);
          end;
          if(armor>hud_armor)then
          begin
             hud_mask_t:=fr_fpsh1;
             with hud_mask do begin r:=0;  g:=255;b:=0  ;end;
-            PlaySoundSource(snd_armor,@cam_x,@cam_y,0,0);
+            Sound_PlaySource(snd_armor,@cam_x,@cam_y,0,0);
          end;
          for i:=0 to AmmoTypesN do
-         if(ammo[i]>hud_ammo[i])then
-         begin
-            hud_mask_t:=fr_fpsh1;
-            with hud_mask do begin r:=255;g:=255;b:=0  ;end;
-            PlaySoundSource(snd_ammo,@cam_x,@cam_y,0,0);
-         end;
+           if(ammo[i]>hud_ammo[i])then
+           begin
+              hud_mask_t:=fr_fpsh1;
+              with hud_mask do begin r:=255;g:=255;b:=0  ;end;
+              Sound_PlaySource(snd_ammo,@cam_x,@cam_y,0,0);
+           end;
 
          if(hud_hits>0)and(hits>0)then
-          if(cam_pl=cl_playeri)and(hud_guni<>gun_inv)then
-           if(((hud_guni and gun_bit[3])=0)and((gun_inv and gun_bit[3])>0))
-           or(((hud_guni and gun_bit[6])=0)and((gun_inv and gun_bit[6])>0))
-           or(((hud_guni and gun_bit[7])=0)and((gun_inv and gun_bit[7])>0))then
-           begin
-              hud_biggun:=fr_fpsx1;
-              PlaySoundSource(snd_chain,@cam_x,@cam_y,0,0);
-           end
-           else PlaySoundSource(snd_weapon,@cam_x,@cam_y,0,0);
+           if(cam_pl=cl_playeri)and(hud_guni<>gun_inv)then
+             if(((hud_guni and gun_bit[3])=0)and((gun_inv and gun_bit[3])>0))
+             or(((hud_guni and gun_bit[6])=0)and((gun_inv and gun_bit[6])>0))
+             or(((hud_guni and gun_bit[7])=0)and((gun_inv and gun_bit[7])>0))then
+             begin
+                hud_biggun:=fr_fpsx1;
+                Sound_PlaySource(snd_chain,@cam_x,@cam_y,0,0);
+             end
+             else Sound_PlaySource(snd_weapon,@cam_x,@cam_y,0,0);
 
          if(gun_curr=7)and(gun_reload[gun_curr]=(gun_rld+1))then
          begin
@@ -1596,7 +1648,6 @@ begin
         end
         else hud_mask_t:=0;
 
-
       hud_hits :=hits;
       hud_armor:=armor;
       hud_guni :=gun_inv;
@@ -1608,8 +1659,32 @@ begin
    if(hud_biggun   >0)then hud_biggun   -=1;
 end;
 
+function CheckSuddenDeathState:boolean;
+begin
+   CheckSuddenDeathState:=false;
+   with sv_clroom^ do
+    if(g_timelimit>0)and(time_min>=g_timelimit)and(not Room_GetWinner(sv_clroom,nil))and(time_scorepause=0) //and(cur_players>1)
+    then CheckSuddenDeathState:=true;
+end;
+
+function GetLeaderPlayer(curVal:byte):byte;
+var p:byte;
+   fn:integer;
+begin
+   GetLeaderPlayer:=curVal;
+   fn:=fn.MinValue;
+   for p:=1 to MaxPlayers do
+    with g_players[p] do
+     if(state>ps_spec)and(frags>fn)then
+     begin
+        fn:=frags;
+        GetLeaderPlayer:=p;
+     end;
+end;
+
 procedure CamNext(next:boolean);
 begin
+   spec_AutoFollow:=0;
    while true do
    begin
       if(next)then
@@ -1630,6 +1705,7 @@ end;
 
 procedure ClientActions;
 var _mdir: integer;
+    _camt: byte;
       _ip: PTPlayer;
       _ir: PTRoom;
       _px,
@@ -1645,14 +1721,31 @@ begin
 
    if(_ir=nil)then exit;
 
-   with _ip^ do
-    if(state>ps_none)then
-     if(state>ps_spec)
-     then cam_pl:=cl_playeri
+   if(_ip^.state>ps_none)then
+     if(_ip^.state>ps_spec)then
+     begin
+        cam_pl:=cl_playeri;
+        spec_AutoFollow:=0;
+     end
      else
      begin
-        if(cl_acts[a_WN]=1)then CamNext(true );
-        if(cl_acts[a_WP]=1)then CamNext(false);
+        if(cl_acts[a_WN]=1)then CamNext(true ) else
+        if(cl_acts[a_WP]=1)then CamNext(false) else
+        if(spec_AutoFollow>0)then
+        begin
+           case spec_AutoFollow of
+           1: _camt:=spec_LastFrager;
+           2: _camt:=GetLeaderPlayer(cam_pl);
+           end;
+           if(_camt>MaxPlayers)or(_camt=0)
+           then spec_AutoFollow:=0
+           else
+             if(g_players[_camt].state>ps_spec)
+             then cam_pl:=_camt
+             else
+               if(_camt=cam_pl)and(g_players[_camt].state<=ps_spec)
+               then CamNext(true);
+        end;
      end;
 
    if(_ir^.time_scorepause>0)then exit;
@@ -1670,7 +1763,13 @@ begin
    if(cl_acts[a_w6]=1)then cl_action:=aid_w6;
    if(cl_acts[a_w7]=1)then cl_action:=aid_w7;
    if(cl_acts[a_w8]=1)then cl_action:=aid_w8;
-   if(cl_acts[a_J ]=1)then cl_action:=aid_specjoin;
+   if(cl_acts[a_J ]=1)then if(menu_locmatch)then
+                           begin
+                              cl_action:=0;
+                              g_SvDoClientAction(_ip,aid_specjoin);
+                              exit;
+                           end
+                           else cl_action:=aid_specjoin;
    end;
 
    if(cam_pl=cl_playeri)then
@@ -1686,7 +1785,7 @@ begin
                          cl_acts[a_SR]>0];
 
          if(_mdir>-1)
-         then PlayerMove(_ir,@vx,@vy,_mdir+vdir,Player_WWidth,state=ps_spec);
+         then player_Move(_ir,@vx,@vy,_mdir+vdir,Player_WWidth,state=ps_spec);
       end;
 
       if(_ir^.demo_cstate=ds_read)then exit;
@@ -1695,7 +1794,7 @@ begin
        if(ammo[gun_ammot[gun_curr]]<gun_ammog[gun_curr])then
        begin
           hud_noammoclk:=fr_fpsh1;
-          PlaySoundSource(snd_noammo,@cam_x,@cam_y,0,0);
+          Sound_PlaySource(snd_noammo,@cam_x,@cam_y,0,0);
        end;
 
       if(menu_locmatch)then
@@ -1704,58 +1803,60 @@ begin
          y   :=vy;
          dir :=vdir;
          wswitch:=player_wswitch;
-         G_SvDoClientAction(_ip,cl_action);
+         g_SvDoClientAction(_ip,cl_action);
          vx  :=x;
          vy  :=y;
          vdir:=dir;
          cl_action:=0;
       end
       else
-        if(player_antilag)and(gun_rld=0)and(state>ps_dead)and(cl_action=aid_attack)then
+        if(player_antilag)and(gun_rld=0)and(state>ps_dead)and(cl_action=aid_attack)and(gun_antilag[gun_curr])then
         begin
-           _px  :=x;
-           _py  :=y;
-           _pd  :=dir;
-           x    :=vx;
-           y    :=vy;
-           dir  :=vdir;
-           PlayerAttack(_ip,true);
+           _px:=x;
+           _py:=y;
+           _pd:=dir;
+           x  :=vx;
+           y  :=vy;
+           dir:=vdir;
+           player_Attack(_ip,true);
            x  :=_px;
            y  :=_py;
            dir:=_pd;
            net_period:=0;
         end;
-   end;
+   end
+   else
+     if(menu_locmatch)then cl_action:=0;
 end;
 
-procedure G_ClGame;
-var p:byte;
-  _pi:PTPlayer;
+procedure g_ClGame;
+var   p: byte;
+pplayer: PTPlayer;
 begin
    for p:=0 to MaxPlayers do
     with g_players[p] do
      if(state>ps_none)then
      begin
-        _pi:=@g_players[p];
-        player_cl_vars(_pi);
+        pplayer:=@g_players[p];
+        player_ClientVars(pplayer);
         if(gun_rld  >0)then gun_rld  -=1;
         if(pause_gun>0)then pause_gun-=1;
         if(tesla_eff>0)then tesla_eff-=1;
         if(state=ps_attk)then
         begin
            if(pnum<>cl_playeri)
-           or((pnum=cl_playeri)and(not player_antilag))
-           then PlayerShoot(_pi,true);
+           or((pnum=cl_playeri)and(not player_antilag or not gun_antilag[gun_curr]))
+           then player_Shot(pplayer,true);
            state:=ps_walk;
         end;
-        if(state=ps_dead)then player_cl_Death(_pi);
+        if(state=ps_dead)then player_ClientDeathEff(pplayer);
      end;
 
    with sv_clroom^ do
-    if(time_scorepause=0)then animation_tick+=1;
+     if(time_scorepause=0)then animation_tick+=1;
 end;
 
-procedure menu_reload_maps;
+procedure menu_ReloadMaps;
 var curmap: shortstring;
 begin
    curmap:=g_maps[menu_bmm].mname;
@@ -1776,21 +1877,26 @@ begin
    with aplayer^ do
    if(state>ps_dead)then
    begin
-      if(net_moves<0)
+      {if(net_moves<0)
       then exit
-      else net_moves-=step[net_fupd];
+      else net_moves-=step[net_fupd];  }
 
       {max_step:=Player_max_speed[not net_fupd]+e;
       cur_step:=dist_r(x,y,nx,ny);
       if(cur_step>max_step)then exit;}
 
-      if(RoomCollisionXY(room,nx-Player_WWidth,ny-Player_WWidth,x,y)>=1)
+      {if(RoomCollisionXY(room,nx-Player_WWidth,ny-Player_WWidth,x,y)>=1)
       or(RoomCollisionXY(room,nx-Player_WWidth,ny+Player_WWidth,x,y)>=1)
       or(RoomCollisionXY(room,nx+Player_WWidth,ny+Player_WWidth,x,y)>=1)
       or(RoomCollisionXY(room,nx+Player_WWidth,ny-Player_WWidth,x,y)>=1)then exit;
+      if(spec)
+      then SetNewXY(aroom,cur_x,cur_y,new_x,new_y,0    ,4)
+      else
+      }
+      SetNewXY(room,@x,@y,nx,ny,Player_WWidth,1);
 
-      x  :=nx;
-      y  :=ny;
+      //x  :=nx;
+      //y  :=ny;
       dir:=ndir;
    end;
 end;

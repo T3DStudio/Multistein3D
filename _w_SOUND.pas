@@ -50,7 +50,7 @@ begin
    SourceisPlaying:=(i=AL_PLAYING);
 end;
 
-procedure PlaySoundSource(schunk:TALint;psx,psy:psingle;sx,sy:single);
+procedure Sound_PlaySource(schunk:TALint;psx,psy:psingle;sx,sy:single);
 var es,p:byte;
     d,di:single;
 begin

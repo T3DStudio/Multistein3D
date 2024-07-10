@@ -9,14 +9,14 @@ begin
    net_writebyte(nmid_roomsinfo);
    net_writebyte(ver);
    net_writecard(sv_ping);
-   net_send(cl_net_svip,cl_net_svp);
+   net_send(cl_net_svip,cl_net_svport);
 end;
 
 procedure net_Disconnect;
 begin
    net_clearbuffer;
    net_writebyte(nmid_cl_disconnect);
-   net_send(cl_net_svip,cl_net_svp);
+   net_send(cl_net_svip,cl_net_svport);
    cl_net_cstat:=cstate_none;
    cl_net_stat :=str_nconnected;
    cl_net_roomi:=255;
@@ -34,7 +34,7 @@ begin
    menu_update   := true;
    menu_locmatch := false;
    ResetLocalGame;
-   demo_break(sv_clroom,'');
+   demo_break(sv_clroom,'',false);
    sv_clroom^.demo_cstate:=ds_none;
 end;
 
@@ -45,7 +45,7 @@ begin
    net_clearbuffer;
    net_writebyte(nmid_cl_chat);
    net_writestring(str);
-   net_send(cl_net_svip,cl_net_svp);
+   net_send(cl_net_svip,cl_net_svport);
 end;
 
 procedure net_SendCommand(str:shortstring);
@@ -55,7 +55,7 @@ begin
    net_clearbuffer;
    net_writebyte(nmid_cl_command);
    net_writestring(str);
-   net_send(cl_net_svip,cl_net_svp);
+   net_send(cl_net_svip,cl_net_svport);
 end;
 
 procedure net_ReadSnapShot;
@@ -157,7 +157,7 @@ begin
               end;
          end;
 
-         pl_state(_pi,nstate,false);
+         player_State(_pi,nstate,false);
 
          if(state>ps_none)then sv_clroom^.cur_clients+=1;
          if(state>ps_spec)then sv_clroom^.cur_players+=1;
@@ -187,7 +187,6 @@ begin
       if(state>ps_dead)then
       begin
          armor   :=net_readbyte;
-         st      :=net_readbyte;
          for st:=1 to AmmoTypesN do
          ammo[st]:=net_readbyte;
          gun_inv :=net_readbyte;
@@ -195,8 +194,8 @@ begin
 
       gdatar_pdata(nil);
       gdatar_RoomLog     (sv_clroom,nil);
-      gdatar_RoomItems   (sv_clroom,nil);
       gdatar_RoomMissiles(sv_clroom,nil);
+      gdatar_RoomItems   (sv_clroom,nil);
    end;
 
    if(cam_pl>MaxPlayers)
@@ -220,7 +219,7 @@ begin
    net_clearbuffer;
    net_writebyte(nmid_cl_maprequest);
    net_writebyte(cl_net_mpartn);
-   net_send(cl_net_svip,cl_net_svp);
+   net_send(cl_net_svip,cl_net_svport);
 end;
 
 procedure net_ReadMapPart;
@@ -377,17 +376,14 @@ begin
       if(mid=nmid_sv_advertise)and(net_SearchLocalSV)then
       begin
          net_SearchLocalSV:=false;
-         menu_update :=true;
-         cl_net_svips:=c2ip(net_LastinIP);
-         cl_net_svps :=w2s(swap(net_LastinPort));
-           ip_txt(@cl_net_svip,@cl_net_svips);
-         port_txt(@cl_net_svp ,@cl_net_svps );
-
+         menu_update  :=true;
+         cl_net_svaddr:=c2ip(net_LastinIP)+':'+w2s(swap(net_LastinPort));
+         txt_ValidateAddr;
          net_RequestRoomsInfo;
       end;
 
-      if(net_LastinIP  <>cl_net_svip)
-      or(net_LastinPort<>cl_net_svp )then continue;
+      if(net_LastinIP  <>cl_net_svip  )
+      or(net_LastinPort<>cl_net_svport)then continue;
 
       net_packets_in+=1;
       net_packetsid_in[mid]+=1;
@@ -413,7 +409,7 @@ nmid_sv_ping        : begin
                          net_clearbuffer;
                          net_writebyte(nmid_cl_ping);
                          net_writecard(ping_t);
-                         net_send(cl_net_svip,cl_net_svp);
+                         net_send(cl_net_svip,cl_net_svport);
                       end;
 nmid_cl_ping        : begin
                          ping_t:=net_readcard;
@@ -456,7 +452,7 @@ cstate_init  : begin
                      net_writestring(player_name);
                      net_writestring(player_rcon);
 
-                     net_send(cl_net_svip,cl_net_svp);
+                     net_send(cl_net_svip,cl_net_svport);
                   end;
 
                   net_period+=1;
@@ -483,7 +479,7 @@ cstate_snap  : begin
                      net_clearbuffer;
                      net_writebyte(nmid_sv_ping);
                      net_writecard(server_ping_t);
-                     net_send(cl_net_svip,cl_net_svp);
+                     net_send(cl_net_svip,cl_net_svport);
                   end
                   else server_ping_p-=1;
 
@@ -515,7 +511,7 @@ cstate_snap  : begin
                         net_writesingle(vy);
                         cl_buffer_xy_add(vx,vy);
                      end;
-                     net_send(cl_net_svip,cl_net_svp);
+                     net_send(cl_net_svip,cl_net_svport);
 
                      cl_action:=0;
                   end;

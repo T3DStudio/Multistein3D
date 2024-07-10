@@ -361,15 +361,21 @@ end;
 
 procedure gdatar_pdata(pf:pfile);
 var pd:byte;
+lfrags:integer;
 begin
    pd:=rudata_byte(pf,0);
    if(pd<=MaxPlayers)then
    with g_players[pd] do
    begin
-      ping :=rudata_word(pf,0);
+      lfrags:=frags;
+
+      ping  :=rudata_word(pf,0);
       if(state>ps_spec)then
-      frags:=rudata_int(pf,0);
-      name :=rudata_string(pf);
+      frags :=rudata_int(pf,0);
+      name  :=rudata_string(pf);
+
+      if(frags>lfrags)then
+      spec_LastFrager:=pd;
    end;
 end;
 
@@ -452,14 +458,15 @@ begin
 end;
 begin
    m_count:=rudata_byte(pf,0);
-   writeln(m_count);
    with aproom^ do
    begin
       if(r_missile_n<>255)then
       begin
          r_missile_n:=255;
          setlength(r_missile_l,255);
+         for cm:=0 to r_missile_n-1 do r_missile_l[cm].mtype:=0;
       end;
+
       pm:=0;
       cm:=0;
       while(m_count>0)do
@@ -468,7 +475,7 @@ begin
 
          if(cm=255)then
          begin
-            demo_break(aproom,str_demo_WrongData);
+            demo_break(aproom,str_demo_WrongData,true);
             exit;
          end;
 
@@ -522,7 +529,7 @@ begin
       room :=sv_clroom;
       pnum :=pi;
    end;
-   pl_state(@g_players[pi],ps_none,false);
+   player_State(@g_players[pi],ps_none,false);
 end;
 
 procedure gdatar_gamedata(aproom:PTRoom;pf:pfile);
@@ -541,7 +548,9 @@ begin
 
       if(time_scorepause<=0)and(cur_players>0)then
       begin
-         time_tick+=1;
+         if(pf=nil)
+         then time_tick+=1
+         else time_tick+=2;
          room_TimeUpdate(aproom);
       end;
 
@@ -556,7 +565,7 @@ begin
 
    if(MaxPlayers<pn)then
    begin
-      demo_break(aproom,str_demo_WrongData);
+      demo_break(aproom,str_demo_WrongData,true);
       exit;
    end;
 
@@ -567,7 +576,7 @@ begin
       pi:=rudata_byte(pf,0);
       if(pi=0)or(MaxPlayers<pi)then
       begin
-         demo_break(aproom,str_demo_WrongData);
+         demo_break(aproom,str_demo_WrongData,true);
          exit;
       end;
       _pi:=@g_players[pi];
@@ -622,7 +631,7 @@ ps_data2 : begin
               end;
            end;
 
-           pl_state(_pi,nstate,false);
+           player_State(_pi,nstate,false);
          end;
 
          if(state>ps_none)then aproom^.cur_clients+=1;
@@ -682,7 +691,7 @@ begin
    +'_'+str_DateTime+'_'+mapname+str_demoext;
 end;
 
-procedure demo_break(aproom:PTRoom;error_msg:shortstring);
+procedure demo_break(aproom:PTRoom;error_msg:shortstring;SwitchToMenu:boolean);
 var message:shortstring;
 begin
    with aproom^ do
@@ -705,6 +714,14 @@ begin
          close(demo_file^);
          dispose(demo_file);
       end;
+      if(SwitchToMenu)then
+      begin
+         {$IFDEF FULLGAME}
+         menu_update:=true;
+         menu_switch(clm_menu);
+         {$ENDIF}
+         demo_cstate:=ds_none;
+      end;
       demo_file  :=nil;
       demo_fname :='';
       demo_fstate:=ds_none;
@@ -713,15 +730,17 @@ begin
 end;
 
 procedure demo_Processing(aproom:PTRoom);
-var v:byte;
-    t:shortstring;
-   mi:word;
+{$IFDEF FULLGAME}
+var t: shortstring;
+    v: byte;
+   mi: word;
+{$ENDIF}
 begin
    with aproom^ do
    begin
       if (demo_fstate >ds_none)
       and(demo_cstate >ds_none)
-      and(demo_fstate<>demo_cstate)then demo_break(aproom,'');
+      and(demo_fstate<>demo_cstate)then demo_break(aproom,'',false);
 
       if(demo_ppause>0)then
       begin
@@ -730,7 +749,7 @@ begin
       end;
 
       case demo_cstate of
-ds_none : demo_break(aproom,'');
+ds_none : demo_break(aproom,'',false);
 ds_write: begin
              if(demo_file=nil)then
              begin
@@ -743,7 +762,7 @@ ds_write: begin
                 {$I+}
                 if(ioresult<>0)then
                 begin
-                   demo_break(aproom,str_demo_WriteError+w2s(ioresult));
+                   demo_break(aproom,str_demo_WriteError+w2s(ioresult),false);
                    exit;
                 end;
                 demo_fstate:=ds_write;
@@ -769,7 +788,7 @@ ds_write: begin
              gdataw_gamedata(aproom,demo_file);
              if(ioresult<>0)then
              begin
-                demo_break(aproom,str_demo_WriteError+w2s(ioresult));
+                demo_break(aproom,str_demo_WriteError+w2s(ioresult),false);
                 exit;
              end;
           end;
@@ -792,21 +811,22 @@ ds_read : begin
                 {$I+}
                 if(ioresult<>0)then
                 begin
-                   demo_break(aproom,str_demo_ReadError+w2s(ioresult));
+                   demo_break(aproom,str_demo_ReadError+w2s(ioresult),true);
                    exit;
                 end;
                 demo_size:=FileSize(demo_file^);
                 demo_head:=true;
                 demo_fstate:=ds_read;
                 ResetLocalGame;
-                menu_switch(0);
+                menu_switch(clm_game);
              end;
              if(demo_head)then
              begin
                 v:=rudata_byte(demo_file,0);
                 if(v<>ver)then
                 begin
-                   demo_break(aproom,str_demo_WrongVersion);
+                   demo_cstate:=ds_none;
+                   demo_break(aproom,str_demo_WrongVersion,true);
                    exit;
                 end;
                 gdatar_RoomInfo(aproom,demo_file);
@@ -818,18 +838,18 @@ ds_read : begin
                 if(mi=mi.MaxValue)then mi:=0;
                 with g_maps[mi] do
                 begin
-                {$I-}
-                BlockRead(demo_file^,mbuff,SizeOf(mbuff));
-                {$I+}
-                mname:=mapname;
+                   {$I-}
+                   BlockRead(demo_file^,mbuff,SizeOf(mbuff));
+                   {$I+}
+                   mname:=mapname;
                 end;
                 map_LoadToRoomByN(sv_clroom,mi);
                 if(mi=0)
                 then map_AddDefault
                 else map_SaveMap(mi);
                 g_players[0].name:=str_demo_PlayerName;
-                pl_state(@g_players[0],ps_spec,false);
-                PlayerMoveToSpawn(@g_players[0]);
+                player_State(@g_players[0],ps_spec,false);
+                player_MoveToSpawn(@g_players[0]);
                 demo_items:=0;
                 demo_head :=false;
                 demo_play_pause:=false;
@@ -847,7 +867,7 @@ ds_read : begin
              end;
              if(eof(demo_file^)or(ioresult<>0))then
              begin
-                demo_break(aproom,str_demo_End);
+                demo_break(aproom,str_demo_End,false);
                 demo_cstate:=ds_none;
                 menu_update:=true;
              end;
@@ -864,7 +884,7 @@ begin
       if(cl_net_cstat>0)
       or(menu_locmatch)then exit;
 
-      demo_break(sv_clroom,'');
+      demo_break(sv_clroom,'',false);
       demo_ppause:=2;
 
       demo_fname :=demo_name;

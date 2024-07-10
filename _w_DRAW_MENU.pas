@@ -8,7 +8,7 @@ procedure draw_menu;
 var i,m,y:integer;
     s:boolean;
 begin
-   draw_box(0        ,0        ,vid_log_w,vid_log_h,@c_dred ,false);
+   draw_box(0        ,0        ,vid_w    ,vid_h    ,@c_dred ,false);
    draw_box(m_DRectX0,m_DRectY0,m_DRectX1,m_DRectY1,@c_ddred,false);
 
    draw_text(vid_log_hw,menu_ystep,menu_font_scale*2,str_mcaption,ta_middle,@c_white ,nil);
@@ -36,6 +36,7 @@ begin
       mi_serverupd,
       mi_disconnect,
       mi_agrp_reload,
+      mi_resolutiona,
       mi_demoreset,
       mi_demoupdlist
                   : draw_text(vid_log_hw,y,menu_font_scale,menu_txtL[m],ta_middle,menu_scol2[s],nil); //yellow/white
@@ -82,10 +83,10 @@ begin
 
    draw_text(vid_log_hw,menu_ctrls_str1      ,menu_font_scale,str_menucontrol1,ta_middle,@c_ltgray,nil);
    draw_text(vid_log_hw,menu_ctrls_str2      ,menu_font_scale,str_menucontrol2,ta_middle,@c_ltgray,nil);
-   draw_text(2         ,vid_log_h-menu_font_h,menu_font_scale,str_ver         ,ta_left  ,@c_ltgray,nil);
+   draw_text(2         ,vid_h-menu_font_h    ,menu_font_scale,str_ver         ,ta_left  ,@c_ltgray,nil);
 
    if(not hud_console)
-   then draw_last_mess;
+   then draw_last_message;
 end;
 
 

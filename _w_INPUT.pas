@@ -53,14 +53,7 @@ end;
 
 procedure G_Mouse(x:integer);
 begin
-   cam_turn+=x*(window_w/vid_log_w)*m_speed*0.0025;
-end;
-
-procedure ActKeysClear;
-var i:byte;
-begin
-   for i:=0 to 255 do cl_acts[i]:=0;
-   last_key_m:=0;
+   cam_turn+=x*(window_w/vid_w)*m_speed*0.0025;
 end;
 
 procedure G_Events;
@@ -113,14 +106,17 @@ begin
 
    if(clear_keys)then ActKeysClear;
 
-   G_Mouse(cl_acts[a_TR]-cl_acts[a_TL]);
+   // keyboard turn
+   with sv_clroom^ do
+     if(demo_cstate<>ds_read)
+     then G_Mouse(cl_acts[a_TR]-cl_acts[a_TL]);
 end;
 
 procedure G_Chat;
 begin
    if(cl_acts[a_menter1]=1)then
    begin
-      cl_ChatCommand(chat_str);
+      client_ChatCommand(chat_str);
       chat_str :='';
       chat_line:=false;
    end
@@ -146,19 +142,31 @@ begin
 end;
 
 procedure G_Console;
+var p:byte;
 begin
    if(cl_acts[a_menter1]=1)then
    begin
-      if(not GameParseCommand(console_str))
-      then net_SendCommand(console_str);
+      if(not GameParseCommand(console_str))then
+       if(cl_net_cstat<cstate_snap)
+       then room_log_add(sv_clroom,log_local,str_notallowedcmd)
+       else net_SendCommand(console_str);
 
       if(console_historyi>MaxRoomLog)
       then console_historyi:=0;
-      console_history[console_historyi]:=console_str;
-      console_historyi+=1;
-      if(console_historyi>MaxRoomLog)
-      then console_historyi:=0;
-      console_historyn:=console_historyi;
+
+      p:=console_historyi;
+      if(p=0)
+      then p:=MaxRoomLog
+      else p-=1;
+
+      if((console_str<>console_history[p])or(length(console_history[p])>0))and(length(console_str)>0)then
+      begin
+         console_history[console_historyi]:=console_str;
+         console_historyi+=1;
+         if(console_historyi>MaxRoomLog)
+         then console_historyi:=0;
+         console_historyn:=console_historyi;
+      end;
 
       console_str :='';
    end
@@ -204,11 +212,11 @@ begin
 
       if(cl_acts[a_alt]=0)then
       begin
-      if(cl_acts[a_C1    ]=1)then cl_ChatCommand(player_chat1)else
-      if(cl_acts[a_C2    ]=1)then cl_ChatCommand(player_chat2)else
-      if(cl_acts[a_C3    ]=1)then cl_ChatCommand(player_chat3)else
-      if(cl_acts[a_C4    ]=1)then cl_ChatCommand(player_chat4)else
-      if(cl_acts[a_C5    ]=1)then cl_ChatCommand(player_chat5);
+      if(cl_acts[a_C1    ]=1)then client_ChatCommand(player_chat1)else
+      if(cl_acts[a_C2    ]=1)then client_ChatCommand(player_chat2)else
+      if(cl_acts[a_C3    ]=1)then client_ChatCommand(player_chat3)else
+      if(cl_acts[a_C4    ]=1)then client_ChatCommand(player_chat4)else
+      if(cl_acts[a_C5    ]=1)then client_ChatCommand(player_chat5);
 
       if(cl_acts[a_votey ]=1)then net_SendCommand(cmd_voteyes)else
       if(cl_acts[a_voten ]=1)then net_SendCommand(cmd_voteno );
@@ -233,6 +241,7 @@ begin
 end;
 
 procedure G_EditorInput;
+var pgrid_w:integer;
 begin
    if(cl_acts[a_menu]=1)then
    begin
@@ -240,16 +249,22 @@ begin
       exit;
    end;
 
-   if(cl_acts[a_edit_left ]>0)then begin editor_vx-=editor_vspeed;editor_ViewBorders;end;
-   if(cl_acts[a_edit_right]>0)then begin editor_vx+=editor_vspeed;editor_ViewBorders;end;
-   if(cl_acts[a_edit_up   ]>0)then begin editor_vy-=editor_vspeed;editor_ViewBorders;end;
-   if(cl_acts[a_edit_down ]>0)then begin editor_vy+=editor_vspeed;editor_ViewBorders;end;
+   if(cl_acts[a_edit_left ]>0)then begin editor_vx-=editor_vspeed;editor_ViewBorders;editor_mouse(editor_mouse_x,editor_mouse_y);end;
+   if(cl_acts[a_edit_right]>0)then begin editor_vx+=editor_vspeed;editor_ViewBorders;editor_mouse(editor_mouse_x,editor_mouse_y);end;
+   if(cl_acts[a_edit_up   ]>0)then begin editor_vy-=editor_vspeed;editor_ViewBorders;editor_mouse(editor_mouse_x,editor_mouse_y);end;
+   if(cl_acts[a_edit_down ]>0)then begin editor_vy+=editor_vspeed;editor_ViewBorders;editor_mouse(editor_mouse_x,editor_mouse_y);end;
 
    if(cl_acts[a_edit_mwheeldown]>0)then
      case editor_panel_b of
                 -1 : begin
-                        editor_grid_w:=max2(10,editor_grid_w-2);
+                        pgrid_w:=editor_grid_w;
+                        editor_grid_w :=mm3i(editor_grid_min,editor_grid_w-editor_grid_step,editor_grid_max);
                         editor_grid_hw:=editor_grid_w div 2;
+
+                        pgrid_w-=editor_grid_w;
+                        editor_vx-=round(vid_w/editor_grid_w*pgrid_w);
+                        editor_vy-=round(vid_h/editor_grid_w*pgrid_w);
+
                         editor_ReCalcMapW;
                      end;
 editor_pb_mapload  : editor_panel_mapi:=(editor_panel_mapi+1) mod g_mapn;
@@ -286,8 +301,14 @@ editor_pb_floor_b  : begin
    if(cl_acts[a_edit_mwheelup  ]>0)then
      case editor_panel_b of
                 -1 : begin
-                        editor_grid_w:=min2(editor_grid_w+2,64);
+                        pgrid_w:=editor_grid_w;
+                        editor_grid_w :=mm3i(editor_grid_min,editor_grid_w+editor_grid_step,editor_grid_max);
                         editor_grid_hw:=editor_grid_w div 2;
+
+                        pgrid_w-=editor_grid_w;
+                        editor_vx-=round(vid_w/editor_grid_w*pgrid_w);
+                        editor_vy-=round(vid_h/editor_grid_w*pgrid_w);
+
                         editor_ReCalcMapW;
                      end;
 editor_pb_mapload  : if(editor_panel_mapi=0)then editor_panel_mapi:=g_mapn-1 else editor_panel_mapi-=1;
@@ -330,6 +351,7 @@ editor_pb_floor_b  : begin
        if(cl_acts[a_edit_lmb]=1)then
          case editor_panel_b of
 editor_pb_mapload : editor_LoadMapByN(editor_panel_mapi);
+editor_pb_grid    : editor_grid:=not editor_grid;
 editor_pb_save    : editor_savemap;
 editor_pb_bwalls  : editor_brush:=editor_brush_wall;
 editor_pb_bdecors : editor_brush:=editor_brush_decor;
@@ -361,7 +383,6 @@ editor_pb_bspawns : editor_brush:=editor_brush_spawn;
 end;
 
 function G_CommonInput:boolean;
-const scroll_speed: word = 10;
 begin
    G_CommonInput:=false;
 
@@ -381,25 +402,23 @@ begin
     end;
    if(cl_acts[a_CO]=1)then
    begin
-      hud_console:=not hud_console;
-      chat_line:=false;
-      ActKeysClear;
-      MouseGrabCheck;
+      ToggleConsole;
+
       exit;
    end;
    if(hud_console)then
    begin
       if(cl_acts[a_LN]>0)then
       begin
-         hud_text_scrol+=scroll_speed;
+         hud_text_scrol+=console_scroll_speed;
          if(hud_text_scrol>MaxRoomLog)then hud_text_scrol:=MaxRoomLog;
          exit;
       end;
       if(cl_acts[a_LP]>0)then
       begin
-         if(hud_text_scrol<=scroll_speed)
+         if(hud_text_scrol<=console_scroll_speed)
          then hud_text_scrol:=0
-         else hud_text_scrol-=scroll_speed;
+         else hud_text_scrol-=console_scroll_speed;
          exit;
       end;
       if(cl_acts[a_tab]>0)then

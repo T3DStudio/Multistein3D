@@ -5,14 +5,14 @@ program T3D_FPS;
 
 {$IFDEF FULLGAME}
   {$APPTYPE CONSOLE}
-  //{$APPTYPE GUI}
+  {$APPTYPE GUI}
 {$ELSE}
   {$APPTYPE CONSOLE}
 {$ENDif}
 
-uses SysUtils, crt, sdl2, sdl2_net
+uses SysUtils, crt, openal, sdl2, sdl2_net
 {$IFDEF FULLGAME}
-,sdl2_image,openal
+,sdl2_image
 {$ENDIF};
 
 {$INCLUDE _w_CONST.pas}

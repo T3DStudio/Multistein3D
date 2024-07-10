@@ -19,6 +19,7 @@ g_maps            : array of TMap;
 g_mapn            : word = 0;
 
 gun_reload_s      : array[0..WeaponsN] of byte;
+gun_antilag       : array[0..WeaponsN] of boolean;
 
 fr_FPSSecond,
 fr_FPSSecondD,
@@ -66,12 +67,17 @@ vid_rect          : PSDL_rect;
 vid_rctexture     : pSDL_Texture = nil;
 
 show_player_id    : boolean = false;
+spec_LastFrager   : byte = 0;
+spec_AutoFollow   : byte = 0;
 
 vid_fullscreen    : boolean = false;
 vid_rc_newz       : boolean = false;
 vid_agraph_dir_l  : array of shortstring;
 vid_agraph_dir_n  : byte = 0;
 vid_agraph_dir_sel: byte = 0;
+
+vid_w             : integer = 800;
+vid_h             : integer = 600;
 
 cl_mode           : byte = 1;
 
@@ -90,6 +96,7 @@ menu_wstay        : boolean = true;
 menu_lslimit      : integer = 0;
 menu_ltlimit      : byte = 0;
 menu_lbots        : array[0..MaxTeamsI] of byte;
+menu_BotSkill     : byte = 50;
 menu_scol         : array[boolean] of PTColor;
 menu_scol2        : array[boolean] of PTColor;
 menu_s            : integer = 1;
@@ -104,6 +111,10 @@ menu_inscr        : integer = 34;
 menu_ystep        : integer = 0;
 menu_font_h       : integer = 0;
 menu_font_w       : integer = 0;
+menu_vid_w        : integer = 800;
+menu_vid_h        : integer = 600;
+menu_vid_ws       : shortstring = '800';
+menu_vid_hs       : shortstring = '600';
 
 menu2actkeys      : array[byte] of byte;
 menu_update       : boolean = true;
@@ -124,10 +135,9 @@ cl_acts           : array[byte] of integer;
 cl_playeri        : byte = 0;
 cl_action         : byte = 0;
 
+cl_net_svaddr     : shortstring = 'localhost:35700';
 cl_net_svip       : cardinal = 0;
-cl_net_svips      : shortstring = '127.0.0.1';
-cl_net_svp        : word = 0;
-cl_net_svps       : shortstring = '35700';
+cl_net_svport     : word = 0;
 cl_net_stat       : shortstring = '';
 cl_net_cstat      : byte = 0;
 cl_net_roomi      : byte = 255;
@@ -193,6 +203,7 @@ hud_textn         : integer = 0;
 hud_text_scrol    : word = MaxRoomLog-5;
 hud_rcw_charn     : integer = 0;
 hud_rch_lines     : integer = 0;
+hud_scale_prsnt   : byte = 100;
 
 animation_tick    : cardinal = 0;
 
@@ -274,14 +285,22 @@ ZBuffer           : pointer = nil;
 ZBufferMDW        : single = 0;
 rc_vgrid          : array[0..map_mlw,0..map_mlw] of boolean;
 
-window_w          : integer = vid_log_w;
-window_h          : integer = vid_log_h;
-screenshot_w      : integer = vid_log_w;
-screenshot_h      : integer = vid_log_h;
+window_w,
+window_h,
+screenshot_w,
+screenshot_h      : integer;
 
 vid_log_mtx       : integer = 0;
 vid_log_rh        : integer = 0;
 vid_log_rih       : integer = 0;
+
+vid_log_hw,
+vid_log_hh,
+vid_msg_x,
+vid_msg_y,
+vid_vote_x,
+vid_vote_y,
+vid_suddend_y     : integer;
 
 vid_rw            : longint = 640;
 vid_rh            : longint = 480;
@@ -292,10 +311,14 @@ rc_cxt,
 vid_aspect        : single;
 vid_aspecti,
 vid_panelh,
+vid_panelw,
+vid_panelx,
 vid_rhw,
 vid_rhh,
 vid_iw,
 vid_ih            : longint;
+vid_line_blink    : boolean;
+vid_line_blink_n  : byte = 0;
 
 hud_weapon_y      : integer = 0;
 hud_scorex,
@@ -318,7 +341,8 @@ hud_gbrc_w,
 hud_gbrc_h,
 
 hud_pl_staty0,
-hud_pl_staty1
+hud_pl_staty1,
+hud_pl_staty2
                   : integer;
 hud_txt_yscale,
 hud_fscale,
@@ -344,6 +368,7 @@ c_ddred,
 c_sred,
 c_dred,
 c_blue,
+c_dblue,
 c_ltblue,
 c_ltlime,
 c_console,
@@ -398,6 +423,7 @@ editor_brush_decor: char = 'a';
 editor_brush_item : char = '1';
 editor_brush_spawn: char = '<';
 editor_brush      : char = 'A';
+editor_grid       : boolean = true;
 
 editor_map        : TMapEditorGrid;
 
