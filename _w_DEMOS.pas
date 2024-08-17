@@ -240,7 +240,6 @@ begin
                     wudata_byte(i2b(hits,Player_max_hits),pf);
                  end;
             end;
-
             i-=1;
             if(i=0)then break;
          end;
@@ -502,7 +501,13 @@ begin
                then MissileExplode(cm)
                else mdir:=point_dir(mx,my,nx,ny);
             end
-            else mdir:=-1;
+            else
+            begin
+               mdir:=-1;
+               {$IFDEF FULLGAME}
+               if(ntype=gpt_fire)then mspriteScale:=0.1;
+               {$ENDIF}
+            end;
 
             mx   :=nx;
             my   :=ny;
@@ -620,7 +625,7 @@ ps_data2 : begin
 
               x   :=pw2s(rudata_word(pf,0));
               y   :=pw2s(rudata_word(pf,0));
-              dir :=i2dir(rudata_int (pf,0));
+              dir :=i2dir(rudata_int(pf,0));
               hits:=     rudata_byte(pf,0);
 
               if(state<ps_walk)then

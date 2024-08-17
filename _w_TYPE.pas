@@ -151,6 +151,7 @@ TMissile = record
    mdamage     : integer;
    {$IFDEF FULLGAME}
    mtrail      : byte;
+   mspriteScale: single;
    {$ENDIF}
 end;
 PTMissile = ^TMissile;

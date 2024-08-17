@@ -179,9 +179,10 @@ begin
 end;
 
 procedure net_ReadPlayerData(pid:byte;full:boolean);
-var aid,ateam:byte;
-  ax,ay,ad:single;
-  lgn:word;
+var
+aid,ateam:byte;
+ax,ay,ad :single;
+lgn      :word;
 begin
    with g_players[pid] do
    begin

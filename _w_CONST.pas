@@ -182,7 +182,6 @@ ps_gibs                = 5; // demo/network
 ps_data1               = 6; // demo name data
 ps_data2               = 7; // demo ping data
 
-
 // action
 aid_w1                 = 1;
 aid_w2                 = 2;
@@ -262,7 +261,7 @@ gun_ammot              : array[0..WeaponsN] of integer     = (ammo_knife ,ammo_b
 gun_ammog              : array[0..WeaponsN] of integer     = (0          ,1           ,1              ,1               ,1          ,1              ,1             ,1             ); // ammo num
 gun_dist               : array[0..WeaponsN] of single      = (0.5        ,100         ,100            ,100             ,100        ,100            ,100           ,13            ); // distance
 gun_disp               : array[0..WeaponsN] of integer     = (0          ,0           ,0              ,10              ,0          ,0              ,0             ,45            ); // dispersion
-gun_dmg                : array[0..WeaponsN] of integer     = (50         ,8           ,8              ,8               ,45         ,10             ,90            ,35            ); // base damage
+gun_dmg                : array[0..WeaponsN] of integer     = (50         ,8           ,8              ,8               ,45         ,10             ,90            ,30            ); // base damage
 gun_reload             : array[0..WeaponsN] of byte        = (fr_fpsh1   ,fr_fpsh1    ,fr_fpsx1 div 6 ,fr_fpsx1 div 12 ,fr_fpsx1   ,fr_fpsx1 div 12,fr_fpsx1      ,fr_fpsx1 div 2); // reload time
 gun_bit                : array[0..WeaponsN] of byte        = (1          ,2           ,4              ,8               ,16         ,32             ,64            ,128           ); // inventory bit
 gun_btype              : array[0..WeaponsN] of byte        = (gpt_bullet ,gpt_bullet  ,gpt_bullet     ,gpt_bullet      ,gpt_bullet ,gpt_fire       ,gpt_rocket    ,gpt_tesla     ); // shot type

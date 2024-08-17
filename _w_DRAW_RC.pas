@@ -653,7 +653,10 @@ begin
         with r_missile_l[i] do
          if(mtype>0)then
           case mtype of
-          gpt_fire  : rc_spr_add(mx,my,0,0.5,0.66,@spr_rcflame [(animation_tick div 4) mod 3],false);
+          gpt_fire  : begin
+                      if(mspriteScale<1)then mspriteScale+=0.12;
+                      rc_spr_add(mx,my,0,0.1,0.66*mspriteScale,@spr_rcflame [(animation_tick div 4) mod 3],false);
+                      end;
           gpt_rocket: begin
                       if(mdir>-1)then
                       rc_spr_add(mx,my,0,0.5,1,@spr_rcrocket[((trunc(point_dir(rc_x,rc_y,mx,my)-dir_360(mdir))+383) mod 360) div 45],false);

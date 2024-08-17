@@ -325,8 +325,12 @@ begin
             hits    :=Player_max_hits;
             gun_inv :=gun_bit[0]+gun_bit[1];
             gun_curr:=1;
+
+            {ammo[ammo_flame ]:=250;
+            ammo[ammo_rocket]:=250;
+            ammo[ammo_tesla ]:=250;
+            gun_inv+=gun_bit[5]+gun_bit[6]+gun_bit[7];  }
          end;
-         //ammo[ammo_flame]:=250;
          gun_next      :=gun_curr;
          pause_resp    :=fr_fpsh1;
          player_Respawn:=true;
@@ -372,7 +376,7 @@ begin
        //player_Respawn(aplayer,true);
        player_Damage(aplayer,1000);
        death_time:=pause_resp;
-       frags:=0;
+       frags :=0;
     end;
 end;
 
@@ -664,6 +668,9 @@ gpt_rocket: with room^ do
                   gpt_fire  : begin
                                  mspeed  :=gpt_fire_speed;
                                  msplashr:=gpt_fire_splashr;
+                                 {$IFDEF FULLGAME}
+                                 mspriteScale:=0.1;
+                                 {$ENDIF}
                               end;
                   gpt_rocket: begin
                                  mspeed  :=gpt_rocket_speed;
@@ -783,7 +790,7 @@ end;
 
 procedure player_TeslaShot(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF});
 var
-pl    : byte;
+pl      : byte;
 ax,ay,
 bx,by,
 tdir,
@@ -806,7 +813,7 @@ begin
       tdir    :=dir;
       teams   :=Room_CheckFlag(room,sv_g_teams);
       {$IFNDEF FULLGAME}
-      stepback:=round(ping/fr_RateTicks) ;
+      stepback:=round(ping/fr_RateTicks);
       {$ENDIF}
    end;
    for pl:=0 to MaxPlayers do
@@ -853,7 +860,6 @@ begin
            end;
         end;
      end;
-
 end;
 
 procedure player_Shot(aplayer:PTPlayer{$IFDEF FULLGAME};fakeshot:boolean{$ENDIF});
@@ -1088,7 +1094,7 @@ end;
 procedure g_SvDoClientAction(aplayer:PTPlayer;aid:byte);
 begin
    with aplayer^ do
-    case aid of
+     case aid of
 aid_w1,
 aid_w2,
 aid_w3,
@@ -1104,8 +1110,7 @@ aid_attack   : if(state>ps_dead)
                then player_Attack(aplayer{$IFDEF FULLGAME},false{$ENDIF})
                else
                  if(state=ps_dead)then player_Respawn(aplayer,false);
-    end;
-
+   end;
 end;
 
 procedure g_SvRooms;
@@ -1770,6 +1775,7 @@ begin
                               exit;
                            end
                            else cl_action:=aid_specjoin;
+
    end;
 
    if(cam_pl=cl_playeri)then
