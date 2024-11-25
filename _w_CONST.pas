@@ -287,7 +287,7 @@ str_demofolder         = 'demos'+str_PathSlash;
 str_demoext            = '.m3dd';
 
 str_mcaption           = 'Multistein 3D';
-str_ver                = 'v2.36';
+str_ver                = 'v2.38';
 str_wcaption           = str_mcaption+' ('+str_ver+')';
 
 // room cfg common values
