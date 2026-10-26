@@ -42,6 +42,11 @@ TRCImage = record
    trunsColor : cardinal;
 end;
 pTRCImage = ^TRCImage;
+TRCImageArray = record
+   RCImage_l: array of TRCImage;
+   RCImage_n: word;
+end;
+pTRCImageArray = ^TRCImageArray;
 
 TBufSpr = record
    bs_rcimage : pTRCImage;
@@ -74,9 +79,13 @@ end;
 
 TRoomInfo = record
    mname,
-   rname      : shortstring;
+   rname,
+   lplayers   : shortstring;
 
-   g_fraglimit: integer;
+   g_fraglimit,
+   g_spreadlimit
+              : integer;
+   g_teams,
    g_timelimit,
    cur_clients,
    cur_players,
@@ -113,7 +122,9 @@ TItem = record
    iarmor      : integer;
    iweapon     : byte;
    ix,iy       : single;
+   ihans,
    irespm,
+   irespmR,
    irespt      : word;
    itype       : char;
    {$IFDEF FULLGAME}
@@ -124,6 +135,24 @@ end;
 TPlayerHitSet  = array[0..PlayerHitSetSize] of byte;
 PTPlayerHitSet = ^TPlayerHitSet;
 
+TDemoPlayerInfo = record
+   dppi_menustate
+             : boolean;
+   dppi_name : shortstring;
+   dppi_ping : word;
+   dppi_x,
+   dppi_y    : single;
+   dppi_cur_ammo,
+   dppi_hits,
+   dppi_armor,
+   dppi_frags: integer;
+   dppi_gun_inv,
+   dppi_gun_cur,
+   dppi_hans,
+   pnum
+             : byte;
+end;
+
 TDemoPos = record
    dp_tick,
    dp_time_tick,
@@ -131,6 +160,8 @@ TDemoPos = record
    dp_demo_items,
    dp_time_scorepause
                : word;
+   dp_players_N: byte;
+   dp_players_L: array of TDemoPlayerInfo;
 end;
 
 TLogMessage = record
@@ -142,19 +173,21 @@ TMissile = record
    mx,my,
    mvx,mvy,
    mspeed,
-   mdir,
    mmaxdist,
    msplashr    : single;
+   mInvulnTics,
    mplayer,
    mgun,
    mtype       : byte;
    mdamage     : integer;
    {$IFDEF FULLGAME}
    mtrail      : byte;
+   mdir,
    mspriteScale: single;
    {$ENDIF}
 end;
 PTMissile = ^TMissile;
+
 
 TRoom = record
    r_item_l    : array of TItem;
@@ -176,6 +209,7 @@ TRoom = record
 
    vote_cmd,
    vote_arg    : shortstring;
+   vote_execDelay,
    vote_time   : word;
    vote_ratio  : single;
 
@@ -184,21 +218,24 @@ TRoom = record
    bot_curt    : array[0..MaxTeamsI] of byte;
    bot_maxt    : array[0..MaxTeamsI] of byte;
 
+   g_spreadlimit,
    g_fraglimit : integer;
    team_frags  : array[0..MaxTeamsI] of integer;
 
-   g_timelimit : byte;
+   g_timelimit : byte; // minutes
    time_min,
    time_min_prev,
    time_sec,
    time_tick   : cardinal;
 
+   g_teams,
    cur_clients,
    cur_players,
    max_clients,
    max_players,
    rnum        : byte;
    g_flags     : cardinal;
+
 
    rname       : shortstring;
 
@@ -209,7 +246,9 @@ TRoom = record
    log_n       : word;
 
    demo_file   : pfile;
-   demo_size   : cardinal;
+   demo_size_full,
+   demo_size_body
+               : cardinal;
    demo_timer1,
    demo_timer2,
    demo_pdata,
@@ -218,8 +257,7 @@ TRoom = record
    demo_fpos_t ,
    demo_fpos_n : cardinal;
    demo_fpos_l : array of TDemoPos;
-   demo_pfrags : array[1..MaxPlayers] of integer;
-   demo_pnames : array[1..MaxPlayers] of shortstring;
+   demo_pvars  : array[1..MaxPlayers] of TDemoPlayerInfo;
    demo_ppause : word;
    demo_fname  : shortstring;
    demo_head   : boolean;
@@ -249,8 +287,21 @@ TPlayer = record
    vx,vy,
    vdir    : single;
    tesla_eff,
-   hits_sound
+   hits_sound,
+   red_mask
            : integer;
+
+   hud_mask     : TColor;
+   hud_mask_t,
+   hud_noammoclk: integer;
+   hud_gun_inv,
+   hud_state    : byte;
+   hud_hans,
+   hud_hits,
+   hud_armor    : integer;
+   hud_ammo     : array[0..AmmoTypesN] of integer;
+   hud_biggun   : byte;
+
    {$ELSE}
    net_moves
            : integer;
@@ -271,22 +322,23 @@ TPlayer = record
    pause_resp,
    pause_spec,
    pause_gun,
-   pause_snap,
    death_time,
    mdata_item,
    ttl,
    ping    : word;
 
+   hans_mode,
    frags,
    hits,
-   armor   : integer;
+   armor,
+   gun_reload
+           : integer;
    ammo    : array[0..AmmoTypesN] of integer;
 
    pnum,
    roomi,
    team,
    state,
-   gun_rld,
    gun_next,
    gun_curr,
    gun_inv,
@@ -306,10 +358,12 @@ TPlayer = record
    bot_mx,
    bot_my  : single;
 
-   gids_death,
-   net_fupd,
-   wswitch,
+   pause_snap,
+   net_updRate: byte;
+
+   wswitch : byte;
    antilag,
+   menustate,
    bot     : boolean;
 
    ip      : cardinal;

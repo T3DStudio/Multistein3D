@@ -9,7 +9,7 @@ begin
    if(net_socket<>nil)then
    begin
       SDLNet_UDP_Close(net_socket);
-      net_socket:=nil;
+      FillChar(net_socket,SizeOf(net_socket),0);
    end;
 end;
 
@@ -136,9 +136,9 @@ begin
    net_RWBuffef(false,SizeOf(net_readsingle),@net_readsingle);
 end;
 
-function GetBBit(pb:pbyte;nb:byte):boolean;
+function GetBBit(b:byte;nb:byte):boolean;
 begin
-   GetBBit:=(pb^ and (1 shl nb))>0;
+   GetBBit:=(b and (1 shl nb))>0;
 end;
 function GetWBit(pw:pword;nb:byte):boolean;
 begin

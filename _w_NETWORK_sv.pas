@@ -8,10 +8,11 @@ var r     :byte;
 begin
    pingms:=net_readcard;
    net_clearbuffer;
-   net_writebyte(nmid_roomsinfo);
+   net_writebyte  (nmid_roomsinfo);
    net_writestring(sv_name);
-   net_writecard(pingms);
-   net_writebyte(sv_maxrooms);
+   net_writebyte  (sv_maxUpdRate);
+   net_writecard  (pingms);
+   net_writebyte  (sv_maxrooms);
    if(sv_maxrooms>0)then
     for r:=0 to sv_maxrooms-1 do gdataw_roominfo(@sv_rooms[r],nil);
    net_send(net_lastinip,net_lastinport);
@@ -33,7 +34,7 @@ begin
       if(p=0)then net_writestring(mname);
 
       i0:=p*NetMapPartSize+1;
-      i1:=min2(i0+NetMapPartSize,MaxMapBuffer);
+      i1:=min2i(i0+NetMapPartSize,MaxMapBuffer);
 
       while(i0<=i1)do
       begin
@@ -53,9 +54,9 @@ var  r,p,clnum,i:byte;
 begin
    for p:=0 to MaxPlayers do
     with g_players[p] do
-     if(state>ps_none)and(bot=false)and(pause_ping=0)then
+     if(state>ps_none)and(not bot)and(pause_ping=0)then
      begin
-        if(ping_t>0)and(ping_r=false)then ping+=sdl_GetTicks-ping_t;
+        if(ping_t>0)and(not ping_r)then ping+=sdl_GetTicks-ping_t;
         pause_ping:=fr_fpsx2;
         ping_r:=false;
         ping_t:=sdl_GetTicks;
@@ -102,12 +103,18 @@ begin
          begin
             net_writebyte(p);
             net_writebyte(PlayerGetStateByte(p));
-            if(state>ps_dead)then
+            if(state>=ps_dead)then
+               net_writesint  (h2si(hits ));
+            if(state> ps_dead)then
             begin
                net_writesingle(x  );
                net_writesingle(y  );
                net_writesingle(dir);
-               net_writebyte  (i2b(hits,Player_max_hits));
+               net_writesint  (h2si(armor));
+               net_writebyte  (gun_inv);
+               if(cdgun_ammot[gun_curr]>0)then
+                 net_writebyte(i2b(ammo[cdgun_ammot[gun_curr]],Player_max_ammo[cdgun_ammot[gun_curr]]));
+               if(hans_mode>0)then net_writebyte(byte(hans_mode div fr_fpsx1)+1);
             end;
             clnum-=1;
             if(clnum=0)then break;
@@ -117,7 +124,7 @@ begin
 
       for p:=1 to MaxPlayers do
        with g_players[p] do
-        if(state>ps_none)and(room=aroom)and(bot=false)and(ttl<fr_fpsx1)and(pause_snap=0)then
+        if(state>ps_none)and(room=aroom)and(not bot)and(ttl<fr_fpsx1)and(pause_snap=0)then
         begin
            net_buffer_pos:=bufposcl;
            net_writebyte(p);
@@ -125,10 +132,9 @@ begin
 
            if(state>ps_dead)then
            begin
-              net_writebyte(i2b(armor  ,Player_max_armor  ));
               for i:=1 to AmmoTypesN do
-              net_writebyte(i2b(ammo[i],Player_max_ammo[i]));
-              net_writebyte(gun_inv);
+                if(i<>cdgun_ammot[gun_curr])then
+                  net_writebyte(i2b(ammo[i],Player_max_ammo[i]));
            end;
 
            gdataw_pdata       (aroom,@pdata_player,nil);
@@ -138,7 +144,9 @@ begin
 
            net_send(ip,port);
 
-           pause_snap:=net_upd_time[net_fupd];
+           if(sv_maxUpdRate>=net_updRate)
+           then pause_snap:=1+sv_maxUpdRate
+           else pause_snap:=1+net_updRate
         end;
    end;
 
@@ -193,13 +201,14 @@ begin
 
       aid:=net_readbyte;
 
-      wswitch :=(aid and %10000000)>0;
-      ateam   :=(aid and %01100000) shr 5;
-      net_fupd:=(aid and %00010000)>0;
-      antilag :=(aid and %00001000)>0;
+      wswitch    :=(aid and %11000000)shr 6;
+      ateam      :=(aid and %00110000)shr 4;
+      net_updRate:=(aid and %00001100)shr 2;
+      antilag    :=(aid and %00000010)>0;
+      menustate  :=(aid and %00000001)>0;
 
       with room^ do
-      if(time_scorepause>0)then exit;
+        if(time_scorepause>0)then exit;
 
       aid:=net_readbyte;//client action
 
@@ -387,13 +396,23 @@ nmid_cl_disconnect : if(pid>0)then player_State(@g_players[pid],ps_none,true);
 nmid_cl_chat       : if(pid=0)
                      then net_p_notconnected(net_lastinip,net_lastinport)
                      else
-                      with g_players[pid] do
-                       if(pause_chat=0)or(rcon_access)then
-                       begin
-                          pause_chat:=0;//room^.time_pause_chat;
-                          room_log_add(room,log_chat,name+': '+net_readchatmsg);
-                       end
-                       else pause_chat+=fr_fpsx1;
+                       with g_players[pid] do
+                         if(pause_chat=0)or(rcon_access)then
+                         begin
+                            pause_chat:=0;//room^.time_pause_chat;
+                            room_log_add(room,log_chat,name+': '+net_readchatmsg,false);
+                         end
+                         else pause_chat+=fr_fpsx1;
+nmid_cl_teamchat   : if(pid=0)
+                     then net_p_notconnected(net_lastinip,net_lastinport)
+                     else
+                       with g_players[pid] do
+                         if(pause_chat=0)or(rcon_access)then
+                         begin
+                            pause_chat:=0;//room^.time_pause_chat;
+                            room_log_add(room,ChatLID(pid,true),name+': '+net_readchatmsg,false);
+                         end
+                         else pause_chat+=fr_fpsx1;
 nmid_cl_command    : if(pid=0)
                      then net_p_notconnected(net_lastinip,net_lastinport)
                      else GameParseCommand(net_readstring,pid);

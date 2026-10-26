@@ -1,7 +1,6 @@
 procedure rc_DrawWalls;
-//const
-//rc_doors = mgr_cdoors+[mgr_bdoor,mgr_odoor];
-var cx,
+var
+cx,
 rdx,rdy,
 rdx1,rdy1,
 rpx,rpy,
@@ -9,15 +8,16 @@ ddx,ddy,
 sdx,sdy,
 pWD,wX   : single;
 zbpos    : psingle;
-   swtex,
-   pwtex,
-    wtex : char;
+swtex,
+pwtex,
+ wtex    : char;
 mx0,my0,
 ix,iy,
 mx,my,
 stx,sty,
 stx0,sty0,
-side,lh,texx,texy,
+side,lh,
+texx,texy,
 ds,de,
 d2,iy2   : longint;
 cc,fc    : cardinal;
@@ -95,8 +95,6 @@ begin
 
          if not(wtex in mgr_bwalls)then continue;
 
-         //if(wtex in rc_doors){and(wtex<>mgr_bdoor)}then continue;
-
          if(side=1)
          then pWD:=(sty0+my-rpy)*rdy1
          else pWD:=(stx0+mx-rpx)*rdx1;
@@ -111,13 +109,6 @@ begin
 
          if(wtex<>mgr_wih)then
          begin
-            {if(pwtex in rc_doors)
-            then ptextw:=@spr_rcwall_doortrack[side]
-            else
-              if(wtex in rc_doors)
-              then ptextw:=@spr_rcwall_door[side]
-              else ptextw:=@spr_rcwall [side,wtex]; }
-
             if(pwtex=mgr_door)
             then ptextw:=@spr_rcwall_doortrack[side]
             else ptextw:=@spr_rcwall          [side,wtex];
@@ -162,7 +153,7 @@ begin
             end;
             while iy<=de do
             begin
-               texy:=iy2 shr rc_intS;
+               texy :=iy2 shr rc_intS;
                if(texy<ptextw^.rc_h)
                then cpix^:=ptextl^[texy]
                else cpix^:=fc;
@@ -215,16 +206,27 @@ begin
 end;  }
 
 procedure rc_spr1(sprx,spry,sprz,scale:single;spr:pTRCImage;Alx:boolean);
-var sx,sy,tx,ty:single;
-    ssx,ssy,sw,sh,shw,dsx,dsy,dex,dey,hmove,stx,sty:integer;
-    texxc,texyc,tdx,tdy,tsdy:longInt;
-    col,
-    tcol:cardinal;
-   ptexl:pTRCTextureLine;
-   pstex:pTRCTexture;
-   zbfs :psingle;
-   ppix,
-   cpix :pcardinal;
+var
+sx,sy,
+tx,ty   : single;
+ssx,ssy,
+sw,sh,
+shw,
+dsx,dsy,
+dex,dey,
+hmove,
+stx,sty : integer;
+texxc,
+texyc,
+tdx,tdy,
+tsdy    : longInt;
+ col,
+tcol    : cardinal;
+ptexl   : pTRCTextureLine;
+pstex   : pTRCTexture;
+zbfs    : psingle;
+ppix,
+cpix    : pcardinal;
 begin
    sx := sprx-rc_x;
    sy := spry-rc_y;
@@ -261,7 +263,7 @@ begin
          then tdx:=-hmove*texxc
          else tdx:=0;
 
-         if (alx) then
+         if(alx)then
          begin
             texxc:=-texxc;
             tdx  :=(spr^.rc_w*rc_intI)-tdx-1;
@@ -598,44 +600,70 @@ begin
    begin
       for i:=0 to MaxPlayers do
        with g_players[i] do
-       if(state>ps_dead)and(i<>cam_pl)then
+       if(i<>cam_pl)then
        begin
-          an:=((dspx<>vx)or(dspy<>vy))and(time_scorepause<=0);
-
-          dspx:=vx;
-          dspy:=vy;
-
-          da:=((trunc(point_dir(rc_x,rc_y,x,y)-dir_360(dir))+428) mod 360) div 45;
-
-          xa:=da in [0,6,7];
-
-          j:=0;
-          case da of
-          0:j:=1;
-          1:j:=0;
-          2:j:=1;
-          3:j:=2;
-          4:j:=3;
-          5:j:=4;
-          6:j:=3;
-          7:j:=2;
-          end;
-
-          if(tesla_eff>0)
-          then rc_spr_add(vx,vy,0,0,1,@spr_rcelectro[j],xa)
-          else
+          if(state>ps_dead)then
           begin
-             if(an)
-             then da:=((animation_tick+i) div 7) mod 4
-             else da:=0;
+             an:=((dspx<>vx)or(dspy<>vy))and(time_scorepause<=0);
 
-             if(gun_rld<=gun_sanim[gun_curr])
-             then da:=(j*4)+da
-             else da:=j+20;
+             dspx:=vx;
+             dspy:=vy;
 
-             rc_spr_add(vx,vy,0,0,1,@spr_rcteam[team,da],xa);
+             da:=((trunc(point_dir(rc_x,rc_y,x,y)-dir_360(dir))+428) mod 360) div 45;
+
+             xa:=da in [0,6,7];
+
+             j:=0;
+             case da of
+             0:j:=1;
+             1:j:=0;
+             2:j:=1;
+             3:j:=2;
+             4:j:=3;
+             5:j:=4;
+             6:j:=3;
+             7:j:=2;
+             end;
+
+             if(tesla_eff>0)and(hans_mode<=0)
+             then rc_spr_add(vx,vy,0,0,1,@spr_rcelectro[j],xa)
+             else
+             begin
+                if(an)
+                then da:=((animation_tick+i) div 7) mod 4
+                else da:=0;
+
+                if(gun_reload>gun_sanim[gun_curr])or((gun_reload>-1)and(hans_mode>0))
+                then da:= j+20
+                else da:=(j*4)+da;
+
+                if(hans_mode>0)
+                then rc_spr_add(vx,vy,0,0,1,@spr_rchans[team,da],xa)
+                else rc_spr_add(vx,vy,0,0,1,@spr_rcteam[team,da],xa);
+             end;
           end;
+          if(state>=ps_dead)and(menustate)then
+            rc_spr_add(vx,vy,1,0,1,@spr_rcmenu,false);
        end;
+
+      {$IFDEF TPOSTER}
+      rc_spr_add(3.5,2.5,0  ,0,1,@spr_rcteam[2,17],false);
+      rc_spr_add(4.5,2.5,0  ,0,1,@spr_rchans[2,17],false);
+
+      rc_spr_add(5.5,2.5,0  ,0,1,@spr_rcitem[17  ],false);
+      //rc_spr_add(5.5,2.5,0.4,0,1,@spr_rcitem[0   ],false);
+      //rc_spr_add(5.5,2.5,0.7,0,1,@spr_rcitem[8   ],false);
+
+      rc_spr_add(6.5,2.5,0  ,0,1,@spr_rchans[3,17],true );
+      rc_spr_add(7.5,2.5,0  ,0,1,@spr_rcteam[3,17],true );
+
+      rc_spr_add(3  ,3.1,0  ,0,1,@spr_rcitem[1   ],false);
+      rc_spr_add(3.8,3.1,0  ,0,1,@spr_rcitem[2   ],false);
+      rc_spr_add(4.6,3.1,0  ,0,1,@spr_rcitem[9   ],false);
+      rc_spr_add(6.4,3.1,0  ,0,1,@spr_rcitem[10  ],false);
+      rc_spr_add(7.2,3.1,0  ,0,1,@spr_rcitem[11  ],false);
+      rc_spr_add(8  ,3.1,0  ,0,1,@spr_rcitem[12  ],false);
+      {$ENDIF}
 
       if(not Room_CheckFlag(sv_clroom,sv_g_instagib))then
        for i:=1 to r_item_n do
@@ -654,8 +682,10 @@ begin
          if(mtype>0)then
           case mtype of
           gpt_fire  : begin
-                      if(mspriteScale<1)then mspriteScale+=0.12;
-                      rc_spr_add(mx,my,0,0.1,0.66*mspriteScale,@spr_rcflame [(animation_tick div 4) mod 3],false);
+                      if(mspriteScale<0.6)then mspriteScale+=0.10;
+                      with spr_rcflame do
+                        if(rcimage_n>0)then
+                          rc_spr_add(mx,my,0,0.1,0.66*mspriteScale,@rcimage_l[(animation_tick div 4) mod rcimage_n],false);
                       end;
           gpt_rocket: begin
                       if(mdir>-1)then
@@ -682,13 +712,44 @@ begin
    if(player_maxcorpses>=0)then
     for i:=0 to player_maxcorpses do
      with map_deads[i] do
-     if(eff_anim>0)then
-     begin
-        if(eff_anim<eff_dant)then eff_anim+=1;
-        if(eff_type<=MaxTeamsI)
-        then rc_spr_add(eff_x,eff_y,0,0,1,@spr_rcteam[eff_type,25+(eff_anim div eff_dans)],false)
-        else rc_spr_add(eff_x,eff_y,0,0,1,@spr_rcmeat[eff_anim div eff_dans]              ,false);
-     end;
+      if(eff_anim>0)then
+      begin
+         //if(eff_anim<eff_dant)then eff_anim+=1;
+         if(eff_anim<255)then eff_anim+=1;
+         j:=eff_anim div eff_dans;
+         case eff_type of
+         0..
+         MaxTeamsI : begin
+                     j+=25;
+                     if(j>SkinSprites)then j:=SkinSprites;
+                     rc_spr_add(eff_x,eff_y,0,0,1,@spr_rcteam[eff_type,j],false);
+                     end;
+         did_hans0..
+         did_hans3 : begin
+                     j+=25;
+                     if(j>SkinSprites)then j:=SkinSprites;
+                     rc_spr_add(eff_x,eff_y,0,0,1,@spr_rchans[eff_type-did_hans0,j],false);
+                     end;
+         did_gibs  : with spr_rcmeat do
+                       if(rcimage_n>0)then
+                       begin
+                          if(j>=rcimage_n)then j:=rcimage_n-1;
+                          rc_spr_add(eff_x,eff_y,0,0,1,@rcimage_l[j],false);
+                       end;
+         did_fire  : with spr_rcfdeath do
+                       if(rcimage_n>0)then
+                       begin
+                          if(j>=rcimage_n)then j:=rcimage_n-1;
+                          rc_spr_add(eff_x,eff_y,0,0,1,@rcimage_l[j],false);
+                       end;
+         did_tesla : with spr_rctdeath do
+                       if(rcimage_n>0)then
+                       begin
+                          if(j>=rcimage_n)then j:=rcimage_n-1;
+                          rc_spr_add(eff_x,eff_y,0,0,1,@rcimage_l[j],false);
+                       end;
+         end;
+      end;
 
    if(map_rc_sprite_n>0)then
    begin

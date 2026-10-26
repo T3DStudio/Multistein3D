@@ -4,7 +4,7 @@ const
 
 DEGTORAD               = pi/180;
 
-ver                    = 10;
+ver                    = 12;
 
 str_NewLineChar        = #13;
 str_ErrorLogSep        = '; ';
@@ -76,6 +76,7 @@ mgr_item_ammorifle     = '%';
 mgr_item_ammoflame     = '$';
 mgr_item_ammopanzer    = '*';
 mgr_item_ammotesla     = '(';
+mgr_item_hansmode      = ')';
 mgr_items              = [
                           mgr_item_armor,
                           mgr_item_mp40,
@@ -93,40 +94,42 @@ mgr_items              = [
                           mgr_item_ammorifle,
                           mgr_item_ammoflame,
                           mgr_item_ammopanzer,
-                          mgr_item_ammotesla
+                          mgr_item_ammotesla,
+                          mgr_item_hansmode
                           ];
 
 DefaultMap             : PChar =
-'FCFCFC707070'+
-' vvvvvvvvvv      IIIIIIII'        +str_NewLineChar+
-' vJjWjXjWjKIIJIII666U  .I'        +str_NewLineChar+
-' vjb3a   a       bS b S I'        +str_NewLineChar+
-' vW383       b         1J'        +str_NewLineChar+
-' vj 3b QQ  RQ1QR S T%TbSI'        +str_NewLineChar+
-' vX      a QQ^QQ        I'        +str_NewLineChar+
-' vj  Q     QQtQQ  U 7 U I'        +str_NewLineChar+
-' vW  Q ab  QQRQQ    S   J'        +str_NewLineChar+
-' vj a   a  RQQQQ    2   I'        +str_NewLineChar+
-' vK       b4QQQQ bYYYY  I'        +str_NewLineChar+
-'  I  RQQQR4b4RQQ  YZZY  I'        +str_NewLineChar+
-'  I  QQQQQQ4b     YZZY  J'        +str_NewLineChar+
-'  K b1<mRQQR   b%4YZZY  I'        +str_NewLineChar+
-'  I  QQQQQRQ  YYYYYi>1b I  a'     +str_NewLineChar+
-'  I  RQQQQfQ  1<gZZZZY  I'        +str_NewLineChar+
-'  I     7Q.Q  YZZZZZZY  J'        +str_NewLineChar+
-'  I      Q1Q  YYYYYYYY  n a ha'   +str_NewLineChar+
-'  M  MM   b             V'        +str_NewLineChar+
-' LL  MM4                n'        +str_NewLineChar+
-' M%b tMMMMMM  J         V a'      +str_NewLineChar+
-' L   MLtLMLM  s      c3 n   i'    +str_NewLineChar+
-' M69          L      303V    a'   +str_NewLineChar+
-' L66   b     4s4      3cn a'      +str_NewLineChar+
-' MMMLML1LMLMLMJnVnVnVnVnO      i' +str_NewLineChar+
-'      M^M                    h'   +str_NewLineChar+
-'      MeM           a    a'       +str_NewLineChar+
-'       J     a  a  h        a'    +str_NewLineChar+
-'              a       a  h'       +str_NewLineChar+
-'             i    a'              +str_NewLineChar+
+'5CFCFC707070'+
+'                IIIIKIIIII'      +str_NewLineChar+
+' vvvvvvvvvv     I S666T .I'      +str_NewLineChar+
+' vJjWjXjWjKIIJIIJ   U  1 I'      +str_NewLineChar+
+' vj8             bS   S TI'      +str_NewLineChar+
+' vW b        b      b2  6I'      +str_NewLineChar+
+' vj    EE  ZY1YZ  S $b U6K'      +str_NewLineChar+
+' vX   :    YZ^ZY        6I'      +str_NewLineChar+
+' vj  E     ZYtYZ  U S S SI'      +str_NewLineChar+
+' vW  E  b  YZZZY       b%I'      +str_NewLineChar+
+' vj        ZZZZZ b      JI'      +str_NewLineChar+
+' IK       b$YZZY  NNNP  I'       +str_NewLineChar+
+'I7n  RQQQR b ZYZ  NNNN  I'       +str_NewLineChar+
+'I I  QQQQQQ4b     NNNN  K'       +str_NewLineChar+
+'K   b1<mRQQR   b%4NNNO  K'       +str_NewLineChar+
+'I I  QQQQQRQ  PNNNPi>1b I  a'    +str_NewLineChar+
+'I n  RQQQQfQ  1<gONNNN  I'       +str_NewLineChar+
+'I I     7Q.Q  NNNNNNNN  J'       +str_NewLineChar+
+'I n      Q1Q  NNNONNNP  n a ha'  +str_NewLineChar+
+'I+M  MM   b             V'       +str_NewLineChar+
+' LL  MM4                n'       +str_NewLineChar+
+' M%b tMMMMMM  J         V a'     +str_NewLineChar+
+' L   MLtLMLM  s         n   i'   +str_NewLineChar+
+' M69          L       c V    a'  +str_NewLineChar+
+' L66   b     4s=       0n a'     +str_NewLineChar+
+' MMMLML1LMLMLMJnVnVnVnVnO      i'+str_NewLineChar+
+'      M^M                    h'  +str_NewLineChar+
+'      MeM           a    a'      +str_NewLineChar+
+'       J     a  a  h        a'   +str_NewLineChar+
+'              a       a  h'      +str_NewLineChar+
+'             i    a'             +str_NewLineChar+
 '                  i         i';
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -162,13 +165,16 @@ ChatLen                = 200;
 // Players max values
 Player_max_hits        = 100;
 Player_max_armor       = 100;
-Player_max_ammo        : array[0..AmmoTypesN] of integer = (0,250,20,250,20,9);
+Player_max_ammo        : array[0..AmmoTypesN] of integer = (0,250,20,250,8,6);
 Player_max_speed       : array[false..true  ] of single  = (0.115,0.23); // [spectator]
 Player_WWidth          : single = 0.25; // collision box for walls
 Player_BWidth          : single = 0.35; // collision box for bullets/projectilles
 Player_IWidth          : single = 0.45; // collision box for items
 
-gibs_hits              = -Player_max_hits div 2;
+hits_adeath_b          = -52;
+hits_adeath_g          = -53; // alternate death: gibs
+hits_adeath_f          = -54; // alternate death: ashes
+hits_adeath_t          = -55; // alternate death: fire
 
 // player state
 ps_none                = 0;
@@ -176,11 +182,9 @@ ps_spec                = 1;
 ps_dead                = 2;
 ps_walk                = 3;
 ps_attk                = 4;
+ps_hwalk               = 5;
+ps_hattk               = 6;
 
-ps_gibs                = 5; // demo/network
-
-ps_data1               = 6; // demo name data
-ps_data2               = 7; // demo ping data
 
 // action
 aid_w1                 = 1;
@@ -207,6 +211,12 @@ log_map                = 6;
 log_local              = 7;
 log_roomdata           = 8;
 log_matchreset         = 9;
+log_team0chat          = 10;
+log_team1chat          = 11;
+log_team2chat          = 12;
+log_team3chat          = 13;
+log_teamOchat          = 14;
+log_localHans          = 15;
 
 // game mode flags
 sv_g_instagib          : cardinal = 1;
@@ -235,14 +245,15 @@ nmid_cl_disconnect     = 140;
 nmid_cl_datas          = 145;
 nmid_cl_datap          = 146;
 nmid_cl_chat           = 150;
-nmid_cl_command        = 151;
+nmid_cl_teamchat       = 151;
+nmid_cl_command        = 152;
 nmid_sv_mappart        = 155;
 nmid_cl_maprequest     = 160;
 nmid_sv_ping           = 165;
 nmid_cl_ping           = 166;
 nmid_sv_advertise      = 200;
 
-net_upd_time           : array[false..true] of word = (2,1);  // [fast update]
+net_MaxUpdRate         = 2;
 
 ////  weapons data
 // shot type
@@ -257,15 +268,17 @@ gpt_rocket_speed       = 0.5;
 gpt_rocket_splashr     = 2;
 
 //                                                            knife      ,pistol      ,mp40           ,chain           ,rifle      ,flame          ,panzer        ,tesla
-gun_ammot              : array[0..WeaponsN] of integer     = (ammo_knife ,ammo_bullet ,ammo_bullet    ,ammo_bullet     ,ammo_rifle ,ammo_flame     ,ammo_rocket   ,ammo_tesla    ); // ammo type
-gun_ammog              : array[0..WeaponsN] of integer     = (0          ,1           ,1              ,1               ,1          ,1              ,1             ,1             ); // ammo num
-gun_dist               : array[0..WeaponsN] of single      = (0.5        ,100         ,100            ,100             ,100        ,100            ,100           ,13            ); // distance
-gun_disp               : array[0..WeaponsN] of integer     = (0          ,0           ,0              ,10              ,0          ,0              ,0             ,45            ); // dispersion
-gun_dmg                : array[0..WeaponsN] of integer     = (50         ,8           ,8              ,8               ,45         ,10             ,90            ,30            ); // base damage
-gun_reload             : array[0..WeaponsN] of byte        = (fr_fpsh1   ,fr_fpsh1    ,fr_fpsx1 div 6 ,fr_fpsx1 div 12 ,fr_fpsx1   ,fr_fpsx1 div 12,fr_fpsx1      ,fr_fpsx1 div 2); // reload time
-gun_bit                : array[0..WeaponsN] of byte        = (1          ,2           ,4              ,8               ,16         ,32             ,64            ,128           ); // inventory bit
-gun_btype              : array[0..WeaponsN] of byte        = (gpt_bullet ,gpt_bullet  ,gpt_bullet     ,gpt_bullet      ,gpt_bullet ,gpt_fire       ,gpt_rocket    ,gpt_tesla     ); // shot type
-gun_name               : array[0..WeaponsN] of shortstring = ('knife'    ,'pistol'    ,'mp40'         ,'chaingun'      ,'rifle'    ,'flamethrower' ,'panzerfaust' ,'teslagun'    ); // name
+cdgun_ammot            : array[0..WeaponsN] of integer     = (ammo_knife ,ammo_bullet ,ammo_bullet    ,ammo_bullet     ,ammo_rifle ,ammo_flame     ,ammo_rocket   ,ammo_tesla    ); // ammo type
+cdgun_ammog            : array[0..WeaponsN] of integer     = (0          ,1           ,1              ,1               ,1          ,1              ,1             ,1             ); // ammo num
+cdgun_dist             : array[0..WeaponsN] of single      = (0.5        ,100         ,100            ,100             ,100        ,100            ,100           ,13            ); // distance
+cdgun_disp             : array[0..WeaponsN] of integer     = (0          ,0           ,0              ,10              ,0          ,0              ,0             ,45            ); // dispersion
+cdgun_dmg              : array[0..WeaponsN] of integer     = (50         ,8           ,8              ,8               ,45         ,10             ,90            ,30            ); // base damage
+cdgun_reload           : array[0..WeaponsN] of integer     = (fr_fpsh1   ,fr_fpsh1    ,fr_fpsx1 div 6 ,fr_fpsx1 div 12 ,fr_fpsx1   ,fr_fpsx1 div 12,fr_fpsx1      ,fr_fpsx1 div 2); // reload time
+cdgun_bit              : array[0..WeaponsN] of byte        = (1          ,2           ,4              ,8               ,16         ,32             ,64            ,128           ); // inventory bit
+cdgun_btype            : array[0..WeaponsN] of byte        = (gpt_bullet ,gpt_bullet  ,gpt_bullet     ,gpt_bullet      ,gpt_bullet ,gpt_fire       ,gpt_rocket    ,gpt_tesla     ); // shot type
+cdgun_name             : array[0..WeaponsN] of shortstring = ('knife'    ,'pistol'    ,'mp40'         ,'chaingun'      ,'rifle'    ,'flamethrower' ,'panzerfaust' ,'teslagun'    ); // name
+
+start_inw              : byte = %00000011;
 
 // demo state
 ds_none                = 0;
@@ -287,27 +300,31 @@ str_demofolder         = 'demos'+str_PathSlash;
 str_demoext            = '.m3dd';
 
 str_mcaption           = 'Multistein 3D';
-str_ver                = 'v2.38';
+str_ver                = 'v2.71';
 str_wcaption           = str_mcaption+' ('+str_ver+')';
 
 // room cfg common values
 
 rcfg_servername        = 'servername';
+rcfg_NetUpdRate        = 'MaxUpdRate';
 rcfg_voteratio         = 'voteratio';
 rcfg_roomname          = 'roomname';
 rcfg_maxplayers        = 'maxplayers';
 rcfg_maxclients        = 'maxclients';
 rcfg_timelimit         = 'timelimit';
 rcfg_fraglimit         = 'fraglimit';
+rcfg_spreadlimit       = 'spreadlimit';
 rcfg_flags             = 'flags';
 rcfg_resettime         = 'resettime';
 rcfg_deathtime         = 'deathtime';
+rcfg_teams             = 'teams';
 
 // commands
 cmd_map                = 'map';
 cmd_mapnext            = 'mapnext';
 cmd_matchend           = 'matchend';
 cmd_matchreset         = 'matchreset';
+cmd_pick               = 'pick';
 cmd_voteyes            = 'yes';
 cmd_voteno             = 'no';
 cmd_botadd             = 'botadd';
@@ -323,21 +340,21 @@ str_pjoined            = ' joined the game';
 str_pleave             = ' leave to spectators';
 str_timelimithit       = 'Timelimit hit!';
 str_fraglimithit       = 'Fraglimit hit!';
+str_spreadlimithit     = 'Spreadlimit hit!';
 str_resetmatch         = 'RESET MATCH!';
 str_endmatch           = 'END MATCH!';
 str_suddendeath        = 'SUDDEN DEATH!';
+str_becomhans          = ' become the Hans!';
 
 str_score              = 'score';
 str_map                = 'map';
-str_nomap              = 'there is map named ';
+str_nomap              = 'there is no map named ';
 
 str_fsplit             = ' > ';
 str_suicide            = 'suicide';
 str_BotBaseName        = 'BOT';
 
-str_teams              : array[0..MaxTeamsI] of shortstring = ('SS','Mutants','Soldiers','Officers');
-str_teams_shorts       : array[0..MaxTeamsI] of shortstring = ('ss','mu'     ,'so'      ,'of'      );
-
+str_teams              : array[0..MaxTeamsI] of shortstring = ('SS','Mutant','Guard','Officer');
 
 str_demo_Break         = 'demo processing break';
 str_demo_BreakPlay     = 'demo: stop play';
@@ -513,6 +530,13 @@ mi_resolutionw         = 97;
 mi_resolutionh         = 98;
 mi_resolutiona         = 99;
 mi_hudscale            = 100;
+mi_spreadlimit         = 101;
+mi_followk             = 102;
+mi_followl             = 103;
+mi_rooml               = 104;
+mi_serverupdr          = 105;
+mi_TeamChat            = 106;
+mi_renderer            = 107;
 
 mi_caption             = 253;
 mi_empty               = 254;
@@ -556,9 +580,17 @@ a_dskipf               = 32;
 a_dskipb               = 33;
 a_US                   = 34;
 a_CO                   = 35;
+a_followk              = 36;
+a_followl              = 37;
+a_TT                   = 38;
 
 // configurable game keys
-cfg_cl_keys            = [a_FW..a_CO];
+cfg_cl_keys            = [a_FW..a_TT];
+
+{$IFDEF DEBUG}
+a_debug_draw           = 200;
+a_debug_fast           = 201;
+{$ENDIF}
 
 a_edit_lmb             = 207;
 a_edit_rmb             = 208;
@@ -594,7 +626,7 @@ a_alt                  = 253;
 a_ctrl                 = 254;
 a_tremove              = 255;
 
-menu_acts              = [a_menu..a_mhome,a_enter..a_tremove,a_SS];
+menu_acts              = [a_menu..a_mhome,a_enter..a_tremove];
 
 // key type
 kt_keyboard            = 1;
@@ -654,6 +686,21 @@ eid_spawn              = 2;
 eid_fire               = 3;
 eid_trail              = 4;
 
+// dead types
+{
+did_team1              = 0;
+did_team2              = 1;
+did_team3              = 2;
+did_team4              = 3;
+}
+did_hans0              = 245;
+did_hans1              = 246;
+did_hans2              = 247;
+did_hans3              = 248;
+did_gibs               = 252;
+did_fire               = 253;
+did_tesla              = 254;
+
 // text alignment
 ta_left                = 0;
 ta_middle              = 1;
@@ -704,7 +751,8 @@ str_msvslc             = 'Search for local server';
 str_mplopt             = 'Player options';
 str_mplname            = 'Name';
 str_mplteam            = 'Team/skin';
-str_mplwsw             = 'Autoswitch to new weapon';
+str_mplwsw             = 'Autoswitch weapon';
+str_mplwswv            : array[0..2] of shortstring = ('never','only first time','always');
 str_mpantilag          = 'Weapon unlag';
 str_mpsmooth           = 'Players move interpolation';
 str_mptime             = 'Show timer';
@@ -717,6 +765,7 @@ str_mvidrcres          = 'Raycasting resolution';
 str_mvidwresw          = 'Window resolution (width)';
 str_mvidwresh          = 'Window resolution (height)';
 str_mvidwresa          = 'Apply window resolution';
+str_mvidrndr           = 'SDL2 Renderer';
 str_mvidfscr           = 'Fullscreen';
 str_mvidhudsc          = 'HUD scale(%)';
 str_mvidcamh           = 'Camera height';
@@ -725,9 +774,7 @@ str_mvidmcorps         = 'Max corpses';
 str_mvidagrp           = 'Additional graphics folder';
 str_mvidrgrp           = 'Reload graphics';
 str_mnetopt            = 'Network options';
-str_mnetupd            = 'Network update';
-str_mnetupds           : array[false..true] of
-                         shortstring =('Every 2nd tick(30/sec)','Every tick(60/sec)');
+str_mnetupd            = 'Network upd.(every X tick)';
 str_mctropt            = 'Player controls';
 str_mctrms             = 'Mouse speed(1-500)';
 str_mctrat             = 'Attack/Respawn';
@@ -739,6 +786,7 @@ str_mctrtl             = 'Turn left';
 str_mctrtr             = 'Turn right';
 str_mctrjs             = 'Join/Spectate';
 str_mctrch             = 'Chat';
+str_mctrtch            = 'Team chat';
 str_mctrwn             = 'Next weapon';
 str_mctrwp             = 'Previous weapon';
 str_mctrw1             = 'Knife';
@@ -766,6 +814,8 @@ str_chat5_str          = 'Chat message 5';
 str_chat5_key          = 'Chat message 5 key';
 str_vote_yes           = 'Vote yes';
 str_vote_no            = 'Vote no';
+str_specfollowk        = 'Spectator: follow killer';
+str_specfollowl        = 'Spectator: follow leader';
 str_dcontrol           = 'Demo playback controls';
 str_ccontrol           = 'Console controls';
 str_dpause             = 'Pause';
@@ -783,11 +833,13 @@ str_localinsta         = 'Instagib';
 str_localiresp         = 'Item respawn';
 str_localwstay         = 'Weapon stay';
 str_localfragl         = 'Fraglimit';
+str_localspreadl       = 'Spreadlimit';
 str_localtimel         = 'Timelimit';
 str_localbskill        = 'Bot skill(1-100)';
 str_localbots          = ' bots';
 str_constat            = 'Connection status';
 str_svname             = 'Server name';
+str_svupdrate          = 'Server max upd. rate';
 str_svping             = 'Ping';
 
 str_ddemos             = 'Demos';
@@ -801,14 +853,19 @@ str_awaitingsrv        = 'Awaiting server...';
 str_wversion           = 'Wrong version!';
 str_wroom              = 'Wrong room number!';
 str_badname            = 'Bad name!';
-str_sfull              = 'Room or server is full!';
+str_sfull              = 'Room/server is full!';
 str_connected          = 'Connected!';
 str_nconnected         = 'Not connected!';
 str_connecting         = 'Connecting...';
 str_mapdownload        = 'Downloading map...';
 str_specmode           = 'Spectator mode. ';
 str_roomfull           = 'Can`t join: room is full. ';
-str_tojoin             = 'To join the game press ';
+str_wrongteam          = 'Can`t join: team not allowed';
+str_tojoin             = {$IFNDEF TPOSTER}
+                         'To join the game press '
+                         {$ELSE}
+                         'To join the tourney press '
+                         {$ENDIF};
 str_follow_use         = 'Use';
 str_follow_cycle       = 'to cycle players';
 str_following          = 'Following ';
@@ -833,14 +890,17 @@ str_demo_StartPlay     = 'demo: start play';
 str_demo_FileNotExists = 'demo: file don`t exists';
 str_demo_WrongVersion  = 'wrong version';
 str_demo_PlayerName    = 'Demo observer';
-str_demo_End           = 'demo end';
+str_demo_End           = 'end of demo';
 str_demo_WrongData     = 'wrong game data';
+str_demo_Pause         = 'playback paused';
 
 str_say                = 'Say: ';
+str_sayTeam            = 'Say team: ';
 
 str_sb_resettime       = 'RESET TIME:';
 str_sb_roomname        = 'ROOM:';
 str_sb_fraglimit       = 'FRAGLIMIT:';
+str_sb_spreadlimit     = 'SPREADLIMIT:';
 str_sb_timelimit       = 'TIMELIMIT:';
 str_sb_players         = 'PLAYERS: ';
 str_sb_frags           = 'FRAGS';
@@ -881,9 +941,12 @@ net_advertise_ip0      = '255.255.255.255';
 
 str_UDP_port           = ' UDP port: ';
 
+str_yes                = 'yes';
+str_no                 = 'no';
+
 str_rconadmin          = ': rcon access granted!';
-str_voteyes            = ': vote yes';
-str_voteno             = ': vote no';
+str_voteyes            = ': vote '+str_yes;
+str_voteno             = ': vote '+str_no;
 str_votealready        = ': another vote already in progress';
 str_votecancel         = ': canceled the vote';
 str_votecall           = ': called vote for: ';
@@ -891,5 +954,6 @@ str_votefailed         = 'server: vote failed for';
 str_votepassed         = 'server: vote passed for: ';
 str_nospecvote         = 'spectators can`t start a vote';
 str_novotes            = 'votes not enabled';
+str_wrongvote          = 'unknown callvote command';
 
 {$ENDIF}

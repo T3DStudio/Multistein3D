@@ -73,8 +73,8 @@ begin
    HaveGoodWeapons:=false;
    with aplayer^ do
     for n:=2 to WeaponsN do
-     if((gun_inv and gun_bit[n])>0)then
-      if(ammo[gun_ammot[n]]>=Player_max_hhammo[gun_ammot[n]])then
+     if((gun_inv and cdgun_bit[n])>0)then
+      if(ammo[cdgun_ammot[n]]>=Player_max_hhammo[cdgun_ammot[n]])then
       begin
          HaveGoodWeapons:=true;
          break;
@@ -86,8 +86,8 @@ begin
    HaveLowAmmo:=false;
    with aplayer^ do
     for n:=2 to WeaponsN do
-     if((gun_inv and gun_bit[n])>0)then
-       if(ammo[gun_ammot[n]]>=Player_max_hammo[gun_ammot[n]])then
+     if((gun_inv and cdgun_bit[n])>0)then
+       if(ammo[cdgun_ammot[n]]>=Player_max_hammo[cdgun_ammot[n]])then
        begin
           HaveLowAmmo:=false;
           break;
@@ -100,8 +100,8 @@ begin
    HaveNotFullAmmo:=false;
    with aplayer^ do
     for n:=2 to WeaponsN do
-     if((gun_inv and gun_bit[n])>0)then
-       if(ammo[gun_ammot[n]]=Player_max_ammo[gun_ammot[n]])then
+     if((gun_inv and cdgun_bit[n])>0)then
+       if(ammo[cdgun_ammot[n]]=Player_max_ammo[cdgun_ammot[n]])then
        begin
           HaveNotFullAmmo:=false;
           break;
@@ -115,7 +115,7 @@ begin
       g_instagib  :=Room_CheckFlag(room,sv_g_instagib  );
       g_weaponstay:=Room_CheckFlag(room,sv_g_weaponstay);
       if(bot_ax>0)then   // run for enemy
-       if((hits>bot_skill_aggression)and(HaveGoodWeapons))or(g_instagib)then
+       if((hits>bot_skill_aggression)and(HaveGoodWeapons))or(g_instagib)or(hans_mode>0)then
         if(point_dist(bot_ax,bot_ay,x,y)<2)then
         begin
            bot_ax:=0;
@@ -287,7 +287,7 @@ begin
    with aplayer^ do
      if(gn<=WeaponsN)then
      begin
-        CheckAndSetWeapon:=((gun_inv and gun_bit[gn])>0)and(ammo[gun_ammot[gn]]>=gun_ammog[gn]);
+        CheckAndSetWeapon:=((gun_inv and cdgun_bit[gn])>0)and(ammo[cdgun_ammot[gn]]>=cdgun_ammog[gn]);
         if(CheckAndSetWeapon)then bot_PickWeaponN:=gn;
      end;
 end;
@@ -297,7 +297,7 @@ begin
       bot_PickWeaponN:=255;
 
       if(not CheckAndSetWeapon(w_knife   ,knife_dist       ))then
-      if(not CheckAndSetWeapon(w_tesla   ,gun_dist[w_tesla]))then
+      if(not CheckAndSetWeapon(w_tesla   ,cdgun_dist[w_tesla]))then
       if(not CheckAndSetWeapon(w_chaingun,chaingun_dist    ))then
       if(not CheckAndSetWeapon(w_flame   ,chaingun_dist    ))then
       if(not CheckAndSetWeapon(w_rifle   ,100              ))then
@@ -331,7 +331,7 @@ begin
 
       if(gun_next=gun_curr)and(gun_prev=gun_curr)and(attack)then
        if(abs(dir_diff(endir,dir))<8)or(d<1)then
-        if(d<=gun_dist[gun_curr])then player_Attack(aplayer{$IFDEF FULLGAME},false{$ENDIF});
+        if(d<=cdgun_dist[gun_curr])then player_Attack(aplayer{$IFDEF FULLGAME},false{$ENDIF});
    end
 end;
 
@@ -367,7 +367,7 @@ ps_attk: begin
             then bot_AttackToPoint(aplayer,g_players[bot_enemy].x,
                                            g_players[bot_enemy].y,shoot)
             else
-              if(gun_rld=0)then dir:=dir_turn(dir,bot_md,8);
+              if(gun_reload<=0)then dir:=dir_turn(dir,bot_md,8);
          end;
    end;
 end;

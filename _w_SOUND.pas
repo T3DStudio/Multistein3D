@@ -54,7 +54,7 @@ procedure Sound_PlaySource(schunk:TALint;psx,psy:psingle;sx,sy:single);
 var es,p:byte;
     d,di:single;
 begin
-   if(cl_mode>0)or(snd_volume=0)or(nosound)then exit;
+   if(cl_mode>clm_game)or(snd_volume=0)or(nosound)then exit;
 
    if(psx<>nil)and(psy<>nil)then
    begin
@@ -83,7 +83,7 @@ begin
    if(es=255)then
     for p:=1 to MaxSoundSources do
      with SSources[p] do
-      if(SourceIsPlaying(snd_oalsrc)=false)then
+      if(not SourceIsPlaying(snd_oalsrc))and(not snd_new)then
       begin
          es:=p;
          break;
@@ -115,7 +115,7 @@ begin
     end;
 end;
 
-procedure PlaySoundGlobal(schunk:TALint);
+procedure Sound_PlayGlobal(schunk:TALint);
 begin
    if(nosound)or(snd_volume=0)then exit;
 
@@ -220,6 +220,8 @@ begin
    snd_armor  := LoadSound('snd_armor'  );
    snd_score  := LoadSound('snd_score'  );
    snd_spawn  := LoadSound('snd_spawn'  );
+   snd_hansm  := LoadSound('snd_hansm'  );
+   snd_hansd  := LoadSound('snd_hansd'  );
    snd_mmove  := LoadSound('snd_mmove'  );
    for i:=0 to WeaponsN do snd_gun[i] := LoadSound('snd_g'+b2s(i));
    for i:=0 to MaxTeamsI do

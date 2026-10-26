@@ -4,7 +4,9 @@ procedure G_ClientGame;
 begin
    net_clientcode;
 
-   demo_Processing(sv_clroom);
+   if(cl_mode=clm_game)or(not menu_locmatch)then
+     demo_Processing(sv_clroom);
+
    with sv_clroom^ do
    begin
       if(demo_cstate<>ds_read)then
@@ -15,7 +17,7 @@ begin
            or(menu_locmatch)then demo_cstate:=ds_write;
       end;
 
-      if(cl_net_cstat>0)or(demo_cstate=ds_read)
+      if(cl_net_cstat>0)or((demo_cstate=ds_read)and(not demo_play_pause))
       then g_ClGame
       else
         if(cl_mode=clm_game)and(menu_locmatch)then g_SvGame;
@@ -66,6 +68,7 @@ begin
    cl_setKeyMenu(a_A      ,kt_mouseb   ,SDL_BUTTON_LEFT  ,mi_attack      ,0);
    cl_setKeyMenu(a_J      ,kt_keyboard ,SDLK_G           ,mi_JoinSpec    ,0);
    cl_setKeyMenu(a_T      ,kt_keyboard ,SDLK_T           ,mi_chat        ,0);
+   cl_setKeyMenu(a_TT     ,kt_keyboard ,SDLK_Y           ,mi_TeamChat    ,0);
    cl_setKeyMenu(a_S      ,kt_keyboard ,SDLK_TAB         ,mi_scores      ,0);
    cl_setKeyMenu(a_WN     ,kt_mousewh  ,mw_down          ,mi_wnext       ,0);
    cl_setKeyMenu(a_WP     ,kt_mousewh  ,mw_up            ,mi_wprev       ,0);
@@ -87,6 +90,8 @@ begin
    cl_setKeyMenu(a_C5     ,kt_keyboard ,SDLK_F5          ,mi_chat5_key   ,0);
    cl_setKeyMenu(a_votey  ,kt_keyboard ,SDLK_PageUp      ,mi_votey       ,0);
    cl_setKeyMenu(a_voten  ,kt_keyboard ,SDLK_PageDown    ,mi_voten       ,0);
+   cl_setKeyMenu(a_followk,kt_keyboard ,SDLK_K           ,mi_followk     ,0);
+   cl_setKeyMenu(a_followl,kt_keyboard ,SDLK_L           ,mi_followl     ,0);
    cl_setKeyMenu(a_LN     ,kt_mousewh  ,mw_down          ,mi_logsnext    ,2);
    cl_setKeyMenu(a_LP     ,kt_mousewh  ,mw_up            ,mi_logsprev    ,2);
    cl_setKeyMenu(a_dpause ,kt_keyboard ,SDLK_Pause       ,mi_dpause      ,1);
@@ -125,6 +130,11 @@ begin
    cl_setKeyMenu(a_edit_lmb       ,kt_mouseb  ,SDL_BUTTON_LEFT  ,0       ,9);
    cl_setKeyMenu(a_edit_rmb       ,kt_mouseb  ,SDL_BUTTON_Right ,0       ,9);
    cl_setKeyMenu(a_edit_mmb       ,kt_mouseb  ,SDL_BUTTON_Middle,0       ,9);
+
+   {$IFDEF DEBUG}
+   cl_setKeyMenu(a_debug_draw     ,kt_keyboard,SDLK_INSERT   ,0,8);
+   cl_setKeyMenu(a_debug_fast     ,kt_keyboard,SDLK_END,0,8);
+   {$ENDIF}
 end;
 
 procedure BuildMoveDirArray;
@@ -159,6 +169,7 @@ begin
    case s of
 {$IFDEF FULLGAME}
 '-nosound'       : nosound:=true;
+'-render'        : vid_renderer_name:=v;
 {$ELSE}
 '-port'          : sv_net_port  :=s2w(v);
 '-roomscfg'      : sv_room_config_fname :=v;
@@ -201,6 +212,7 @@ begin
    setlength(sv_rooms,sv_maxrooms);
    sv_clroom:=@sv_rooms[0];
    demo_init_data(sv_clroom);
+   sv_clroom^.demo_fpos_n:=0;
 
    FillChar(console_history,SizeOf(console_history),0);
 
@@ -228,7 +240,7 @@ begin
 
    if(not net_UpSocket(net_advertise_port0,true))then
    begin
-      room_log_add(sv_clroom,log_local,str_AdvPortError);
+      room_log_add(sv_clroom,log_local,str_AdvPortError,true);
       if(not net_UpSocket(0,true))then exit;
    end;
 

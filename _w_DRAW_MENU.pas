@@ -43,41 +43,34 @@ begin
       mi_caption  : draw_text(vid_log_hw,y,menu_font_scale,menu_txtL[m],ta_middle,@c_orange    ,nil);
       mi_empty    : ;
       mi_servername,
+      mi_serverupdr,
       mi_serverping,
       mi_constatus,
       mi_inactive2: begin
-                    draw_text(vid_log_hw ,y,menu_font_scale,menu_txtL[m],ta_right,@c_dgray,nil);
-                    draw_text(vid_log_mtx,y,menu_font_scale,menu_txtR[m],ta_left ,@c_dgray,nil);
+                    draw_text(vid_log_hw ,y,menu_font_scale,menu_txtL[m],ta_right ,@c_dgray    ,nil);
+                    draw_text(vid_log_mtx,y,menu_font_scale,menu_txtR[m],ta_left  ,@c_dgray    ,nil);
                     end;
       mi_rcaptioninactive:
                     begin
-                       draw_text(m_DRectX0,y,menu_font_scale,menu_txtL[m],ta_left ,@c_gray,nil);
-                       draw_text(m_DRectX1,y,menu_font_scale,menu_txtR[m],ta_right,@c_gray,nil);
+                    draw_text(m_DRectX0  ,y,menu_font_scale,menu_txtL[m],ta_left  ,@c_gray     ,nil);
+                    draw_text(m_DRectX1  ,y,menu_font_scale,menu_txtR[m],ta_right ,@c_gray     ,nil);
                     end;
       mi_roomcaption
-                  : begin
-                       draw_text(m_DRectX0,y,menu_font_scale,menu_txtL[m],ta_left ,@c_ltgray,nil);
-                       draw_text(m_DRectX1,y,menu_font_scale,menu_txtR[m],ta_right,@c_ltgray,nil);
-                    end;
-      mi_room     : begin
-                       draw_text(m_DRectX0,y,menu_font_scale,menu_txtL[m],ta_left ,@c_ltlime,nil);
-                       draw_text(m_DRectX1,y,menu_font_scale,menu_txtR[m],ta_right,@c_ltlime,nil);
-                    end;
-      mi_rooms    : begin
-                       draw_text(m_DRectX0,y,menu_font_scale,menu_txtL[m],ta_left ,@c_ltblue,nil);
-                       draw_text(m_DRectX1,y,menu_font_scale,menu_txtR[m],ta_right,@c_ltblue,nil);
-                    end;
-      mi_demoplay     : begin
-                       draw_text(m_DRectX0,y,menu_font_scale,menu_txtL[m],ta_left ,@c_ltlime,nil);
-                       draw_text(m_DRectX1,y,menu_font_scale,menu_txtR[m],ta_right,@c_ltlime,nil);
+                  : draw_text(vid_log_hw ,y,menu_font_scale,menu_txtL[m],ta_middle,@c_ltgray   ,nil);
+      mi_room     : draw_text(vid_log_hw ,y,menu_font_scale,menu_txtL[m],ta_middle,@c_ltlime   ,nil);
+      mi_rooms    : draw_text(vid_log_hw ,y,menu_font_scale,menu_txtL[m],ta_middle,@c_ltblue   ,nil);
+      mi_rooml    : draw_text(m_DRectX0  ,y,menu_font_scale,menu_txtL[m],ta_left  ,@c_ltgray   ,nil);
+      mi_demoplay : begin
+                    draw_text(m_DRectX0  ,y,menu_font_scale,menu_txtL[m],ta_left  ,@c_ltlime   ,nil);
+                    draw_text(m_DRectX1  ,y,menu_font_scale,menu_txtR[m],ta_right ,@c_ltlime   ,nil);
                     end;
       mi_demos    : begin
-                       draw_text(m_DRectX0,y,menu_font_scale,menu_txtL[m],ta_left ,@c_ltblue,nil);
-                       draw_text(m_DRectX1,y,menu_font_scale,menu_txtR[m],ta_right,@c_ltblue,nil);
+                    draw_text(m_DRectX0  ,y,menu_font_scale,menu_txtL[m],ta_left  ,@c_ltblue   ,nil);
+                    draw_text(m_DRectX1  ,y,menu_font_scale,menu_txtR[m],ta_right ,@c_ltblue   ,nil);
                     end;
       else
-        draw_text(vid_log_hw ,y,menu_font_scale,menu_txtL[m],ta_right,menu_scol[s],nil);
-        draw_text(vid_log_mtx,y,menu_font_scale,menu_txtR[m],ta_left ,menu_scol[s],nil);
+                    draw_text(vid_log_hw ,y,menu_font_scale,menu_txtL[m],ta_right ,menu_scol[s],nil);
+                    draw_text(vid_log_mtx,y,menu_font_scale,menu_txtR[m],ta_left  ,menu_scol[s],nil);
       end;
    end;
 

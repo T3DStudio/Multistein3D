@@ -18,7 +18,7 @@ function zi(a1:byte;b:boolean):byte;begin if(b)then zi:=mi_inactive2 else zi:=a1
 function zr(a1:byte;b:boolean):byte;begin if(b)then zr:=mi_inactive3 else zr:=a1;end;
 
 procedure MenuRoomsInfoLines;
-const sb       : shortstring = '                                                       ';
+const sb       : shortstring = '                                                      ';
       ric_num  : shortstring = '#';
       ric_name : shortstring = 'NAME';
       ric_map  : shortstring = 'MAP';
@@ -40,7 +40,6 @@ const sb       : shortstring = '                                                
 var sr:shortstring;
      r:integer;
 begin
-   if(sv_roomsinfo_n=0)then exit;
    sr:=sb;
    setchars1(@sr,sbi_num  ,sbn_num  ,@ric_num  );
    setchars1(@sr,sbi_name ,sbn_name ,@ric_name );
@@ -54,6 +53,7 @@ begin
    MenuAddLine(mi_rCaptionInactive,'',str_FLAGS_str3);
    MenuAddLine(mi_roomcaption     ,sr,'');
    menu_roomi:=menu_num;
+   if(sv_roomsinfo_n>0)then
    for r:=0 to sv_roomsinfo_n-1 do
     with sv_roomsinfo[r] do
     begin
@@ -65,9 +65,16 @@ begin
        setchars2(@sr,sbi_pl   ,sbn_pl   ,i2s(cur_players)+'/'+i2s(max_players));
        setchars2(@sr,sbi_flags,sbn_flags,RFlags2Str(g_flags));
 
-       if(r=cl_net_roomi)
-       then MenuAddLine(mi_rooms,sr,'')
-       else MenuAddLine(mi_room ,sr,'');
+       if(r=cl_net_roomi)then
+       begin
+          MenuAddLine(mi_rooms,sr,''      );
+          MenuAddLine(mi_rooml,txt_TrimString(lplayers,length(sb)),'');
+       end
+       else
+       begin
+          MenuAddLine(mi_room ,sr,''      );
+          MenuAddLine(mi_rooml,txt_TrimString(lplayers,length(sb)),'');
+       end;
     end;
 end;
 procedure MenuDemoListLines;
@@ -107,6 +114,7 @@ begin
      MenuAddLine(mi_serverAddr                   ,str_msvaddr                  ,cl_net_svaddr          );
      MenuAddLine(mi_serverupd                    ,str_msvupd                   ,''                     );
      MenuAddLine(mi_servername                   ,str_svname                   ,sv_name                );
+     MenuAddLine(mi_serverupdr                   ,str_svupdrate                ,b2s(sv_maxUpdRate+1)   );
      MenuAddLine(mi_serverping                   ,str_svping                   ,sv_ping_str            );
      MenuAddLine(zr(mi_disconnect                ,
                  cl_net_cstat=0)                 ,str_mdconnect                ,''                     );
@@ -128,7 +136,8 @@ begin
 then MenuAddLine(zi(mi_localwstay ,menu_locmatch
                               or   menu_linsta  ),str_localwstay               ,b2yn[menu_wstay ]      )
 else MenuAddLine(zi(mi_localwstay ,true         ),str_localwstay               ,b2yn[true       ]      );
-     MenuAddLine(zi(mi_fraglimit  ,menu_locmatch),str_localfragl               ,i2s(menu_lslimit)      );
+     MenuAddLine(zi(mi_fraglimit  ,menu_locmatch),str_localfragl               ,i2s(menu_lflimit)      );
+     MenuAddLine(zi(mi_spreadlimit,menu_locmatch),str_localspreadl             ,i2s(menu_lslimit)      );
      MenuAddLine(zi(mi_timelimit  ,menu_locmatch),str_localtimel               ,i2s(menu_ltlimit)      );
      MenuAddLine(zi(mi_botskill   ,menu_locmatch),str_localbskill              ,b2s(menu_BotSkill)     );
      MenuAddLine(zi(mi_localbotT1 ,menu_locmatch),str_teams[0]+str_localbots   ,i2s(menu_lbots[0])     );
@@ -138,9 +147,11 @@ else MenuAddLine(zi(mi_localwstay ,true         ),str_localwstay               ,
      MenuAddLine(zi(mi_empty      ,menu_locmatch),''                           ,''                     );
 
 {-}  MenuAddLine(mi_caption                      ,str_mplopt                   ,''                     );  //-- Player options
-     MenuAddLine(mi_PlayerName                   ,str_mplname                  ,player_name            );
-     MenuAddLine(mi_PlayerTeam                   ,str_mplteam                  ,str_teams[player_team] );
-     MenuAddLine(mi_playerwswtch                 ,str_mplwsw                   ,b2yn[player_wswitch  ] );
+     MenuAddLine(
+              zi(mi_PlayerName,not CanChangeName),str_mplname                  ,player_name            );
+     MenuAddLine(
+              zi(mi_PlayerTeam,not CanChangeTeam),str_mplteam                  ,str_teams[player_team] );
+     MenuAddLine(mi_playerwswtch                 ,str_mplwsw                   ,str_mplwswv[player_wswitch] );
      MenuAddLine(mi_playerantilag                ,str_mpantilag                ,b2yn[player_antilag  ] );
      MenuAddLine(mi_playersmooth                 ,str_mpsmooth                 ,b2yn[player_smooth   ] );
      MenuAddLine(mi_playertimer                  ,str_mptime                   ,b2yn[player_showtime ] );
@@ -159,6 +170,7 @@ else MenuAddLine(zi(mi_localwstay ,true         ),str_localwstay               ,
      MenuAddLine(zr(mi_resolutiona,
          (menu_vid_w=vid_w)and(menu_vid_h=vid_h)),str_mvidwresa                ,''                     );
      MenuAddLine(mi_rcresolution                 ,str_mvidrcres                ,i2s(vid_rw)+'x'+i2s(vid_rh));
+     MenuAddLine(mi_renderer                     ,str_mvidrndr                 ,vid_renderer_name      );
      MenuAddLine(mi_fullscreen                   ,str_mvidfscr                 ,b2yn[vid_fullscreen]   );
      MenuAddLine(mi_hudscale                     ,str_mvidhudsc                ,b2s(hud_scale_prsnt)   );
      MenuAddLine(mi_CameraZ                      ,str_mvidcamh                 ,str_camz[vid_rc_newz]  );
@@ -169,7 +181,7 @@ else MenuAddLine(zi(mi_localwstay ,true         ),str_localwstay               ,
      MenuAddLine(mi_empty                        ,''                           ,'');
 
 {-}  MenuAddLine(mi_caption                      ,str_mnetopt                  ,'');                       //-- Network options
-     MenuAddLine(mi_netupd                       ,str_mnetupd                  ,str_mnetupds[player_netupd]);
+     MenuAddLine(mi_netupd                       ,str_mnetupd                  ,b2s(player_netupd+1));
      MenuAddLine(mi_empty                        ,''                           ,'');
 
 {-}  MenuAddLine(mi_caption                      ,str_mctropt                  ,'');                   //-- Controls
@@ -183,6 +195,7 @@ else MenuAddLine(zi(mi_localwstay ,true         ),str_localwstay               ,
      MenuAddLine(mi_turnright                    ,str_mctrtr                   ,GetKeyName(a_TR));     // turn right
      MenuAddLine(mi_JoinSpec                     ,str_mctrjs                   ,GetKeyName(a_J ));     // spectate / join
      MenuAddLine(mi_chat                         ,str_mctrch                   ,GetKeyName(a_T ));     // chat
+     MenuAddLine(mi_TeamChat                     ,str_mctrtch                  ,GetKeyName(a_TT));     // Team chat
      MenuAddLine(mi_wnext                        ,str_mctrwn                   ,GetKeyName(a_WN));     // weapon next
      MenuAddLine(mi_wprev                        ,str_mctrwp                   ,GetKeyName(a_WP));     // weapon previous
      MenuAddLine(mi_w1                           ,str_mctrw1                   ,GetKeyName(a_w1));     // knife
@@ -207,6 +220,8 @@ else MenuAddLine(zi(mi_localwstay ,true         ),str_localwstay               ,
      MenuAddLine(mi_chat5_key                    ,str_chat5_key                ,GetKeyName(a_C5));     // chat message 5
      MenuAddLine(mi_votey                        ,str_vote_yes                 ,GetKeyName(a_votey));  // chat message 5
      MenuAddLine(mi_voten                        ,str_vote_no                  ,GetKeyName(a_voten));  // chat message 5
+     MenuAddLine(mi_followk                      ,str_specfollowk              ,GetKeyName(a_followk));// spectator: follow killer
+     MenuAddLine(mi_followl                      ,str_specfollowl              ,GetKeyName(a_followl));// spectator: follow leader
 
      MenuAddLine(mi_caption                      ,str_ccontrol                 ,'');                   //-- Demo playback controls
      MenuAddLine(mi_console                      ,str_mctrsc                   ,GetKeyName(a_CO));     // console
@@ -256,7 +271,7 @@ begin
       if(menu_s< 0       )then begin menu_s:=0;         break;end;
       if(menu_s>=menu_num)then begin menu_s:=menu_num-1;break;end;
 
-      if not(menu_txtT[menu_s] in [mi_caption,mi_empty,0,mi_roomcaption,mi_inactive3,mi_constatus,mi_servername,mi_serverping,mi_rCaptionInactive])then
+      if not(menu_txtT[menu_s] in [mi_caption,mi_empty,0,mi_roomcaption,mi_inactive3,mi_constatus,mi_servername,mi_serverping,mi_rCaptionInactive,mi_rooml])then
       begin
          pms:=menu_s;
          step-=s;
@@ -267,9 +282,9 @@ begin
    menu_s:=pms;
 
    if(menu_s-menu_scrol)>menu_inscr then menu_scrol:=menu_s-menu_inscr;
-   if(menu_s-menu_scrol)<0          then menu_scrol:=menu_s;
+   if(menu_s-menu_scrol)<0          then menu_scrol:=menu_s-1;   // -1 - if first menu item is caption
 
-   PlaySoundGlobal(snd_mmove);
+   Sound_PlayGlobal(snd_mmove);
 end;
 
 
@@ -284,9 +299,13 @@ begin
     mi_quit         : if(s=2)then sys_cycle:=false;
     mi_editor       : cl_mode:=clm_editor;
     mi_fullscreen   : ScreenToggleWindowed;
+    mi_renderer     : begin
+                      vid_renderer_name:=SDL2RendererNext(vid_renderer_name,s>-1);
+                      room_log_add(sv_clroom,log_local,'You need restart the game to change renderer!',true);
+                      end;
     mi_CameraZ      : begin vid_rc_newz:=not vid_rc_newz;cam_z:=rc_camz[vid_rc_newz];end;
-    mi_PlayerTeam   : if(s<>2)then _bn(@player_team,sign(s),0,MaxTeamsI);
-    mi_playerwswtch : player_wswitch    :=not player_wswitch;
+    mi_PlayerTeam   : if(s<>2)then _bn(@player_team   ,sign(s),0,MaxTeamsI);
+    mi_playerwswtch : if(s<>2)then _bn(@player_wswitch,sign(s),0,2        );
     mi_playerantilag: player_antilag    :=not player_antilag;
     mi_playersmooth : player_smooth     :=not player_smooth;
     mi_chat_sound   : player_chat_snd   :=not player_chat_snd;
@@ -306,22 +325,23 @@ begin
     mi_SoundVolume  : if(s<>2)then begin _bn(@snd_volume ,sign(s),0,100); snd_volume1:=snd_volume/100;end;
     mi_MouseSpeed   : if(s<>2)then _in(@m_speed    ,sign(s),m_speed_min,m_speed_max);
     mi_localgame    : if(s= 2)then begin if(cl_net_cstat>0)then net_Disconnect;StartLocalGame;menu_switch(255);end;
-    mi_localmap     : if(menu_locmatch=false)and(s<>2)then MenuMapRoll(s>0);
-    mi_fraglimit    : if(menu_locmatch=false)and(s<>2)then with sv_clroom^ do _in(@menu_lslimit,sign(s),0,1000);
-    mi_timelimit    : if(menu_locmatch=false)and(s<>2)then with sv_clroom^ do _in(@menu_ltlimit,sign(s),0,60);
-    mi_botskill     : if(menu_locmatch=false)and(s<>2)then _bn(@menu_BotSkill,sign(s),1,100);
-    mi_localbotT1   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[0],sign(s),0,255);
-    mi_localbotT2   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[1],sign(s),0,255);
-    mi_localbotT3   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[2],sign(s),0,255);
-    mi_localbotT4   : if(menu_locmatch=false)and(s<>2)then _bn(@menu_lbots[3],sign(s),0,255);
-    mi_localteams   : if(menu_locmatch=false)then menu_lteams:=not menu_lteams;
-    mi_localteamd   : if(menu_locmatch=false)then menu_lteamd:=not menu_lteamd;
-    mi_localinsta   : if(menu_locmatch=false)then menu_linsta:=not menu_linsta;
-    mi_localiresp   : if(menu_locmatch=false)then menu_itresp:=not menu_itresp;
-    mi_localwstay   : if(menu_locmatch=false)then menu_wstay :=not menu_wstay;
-    mi_netupd       : player_netupd:=not player_netupd;
+    mi_localmap     : if(not menu_locmatch)and(s<>2)then MenuMapRoll(s>0);
+    mi_fraglimit    : if(not menu_locmatch)and(s<>2)then with sv_clroom^ do _in(@menu_lflimit,sign(s),0,1000);
+    mi_spreadlimit  : if(not menu_locmatch)and(s<>2)then with sv_clroom^ do _in(@menu_lslimit,sign(s),0,1000);
+    mi_timelimit    : if(not menu_locmatch)and(s<>2)then with sv_clroom^ do _in(@menu_ltlimit,sign(s),0,60  );
+    mi_botskill     : if(not menu_locmatch)and(s<>2)then _bn(@menu_BotSkill,sign(s),1,100);
+    mi_localbotT1   : if(not menu_locmatch)and(s<>2)then _bn(@menu_lbots[0],sign(s),0,255);
+    mi_localbotT2   : if(not menu_locmatch)and(s<>2)then _bn(@menu_lbots[1],sign(s),0,255);
+    mi_localbotT3   : if(not menu_locmatch)and(s<>2)then _bn(@menu_lbots[2],sign(s),0,255);
+    mi_localbotT4   : if(not menu_locmatch)and(s<>2)then _bn(@menu_lbots[3],sign(s),0,255);
+    mi_localteams   : if(not menu_locmatch)then menu_lteams:=not menu_lteams;
+    mi_localteamd   : if(not menu_locmatch)then menu_lteamd:=not menu_lteamd;
+    mi_localinsta   : if(not menu_locmatch)then menu_linsta:=not menu_linsta;
+    mi_localiresp   : if(not menu_locmatch)then menu_itresp:=not menu_itresp;
+    mi_localwstay   : if(not menu_locmatch)then menu_wstay :=not menu_wstay;
+    mi_netupd       : _bn(@player_netupd,sign(s),0,net_MaxUpdRate);
     mi_serverupd    : if(s=2)then       net_RequestRoomsInfo;
-    mi_room         : if(s=2)then begin net_StartConnect(menu_s-menu_roomi);menu_switch(255);end;
+    mi_room         : if(s=2)then begin net_StartConnect((menu_s-menu_roomi) div 2);menu_switch(255);end;
     mi_demoplay     : if(s=2)then begin demos_PlayDemo(demos_l[menu_s-menu_demoi]); end;
     mi_demoreset    : if(s=2)then begin demo_break(sv_clroom,str_demo_MenuReset,false);sv_clroom^.demo_cstate:=ds_none;end;
     mi_disconnect   : if(s=2)then       net_Disconnect;
@@ -350,6 +370,7 @@ begin
     mi_turnright,
     mi_JoinSpec,
     mi_chat,
+    mi_TeamChat,
     mi_wnext,
     mi_wprev,
     mi_w1,
@@ -367,9 +388,11 @@ begin
     mi_console,
     mi_votey,
     mi_voten,
+    mi_followk,
+    mi_followl,
     mi_screenshot   : if(s=2)then menu_sfix:=menu_s;
    end;
-   PlaySoundGlobal(snd_mmove);
+   Sound_PlayGlobal(snd_mmove);
 end;
 
 
@@ -475,8 +498,8 @@ a_mup2   : menu_sel(-1);
 a_mdown1,
 a_mdown2 : menu_sel( 1);
 a_menu   : menu_switch(255);
-a_mpgup  : menu_sel(-menu_inscr);
-a_mpgdn  : menu_sel( menu_inscr);
+a_mpgup  : menu_sel(-(menu_inscr-2));
+a_mpgdn  : menu_sel( (menu_inscr-2));
 a_mhome  : begin menu_s:=0;         menu_scrol:=0;                end;
 a_mend   : begin menu_s:=menu_num-1;menu_scrol:=menu_s-menu_inscr;end;
 a_mdel   : if(menu2actkeys[menu_txtT[menu_s]]>0)then cl_setKey(menu2actkeys[menu_txtT[menu_s]],0,0);

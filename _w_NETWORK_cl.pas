@@ -38,12 +38,14 @@ begin
    sv_clroom^.demo_cstate:=ds_none;
 end;
 
-procedure net_SendChat(str:shortstring);
+procedure net_SendChat(str:shortstring;team:boolean);
 begin
    if(cl_net_cstat<cstate_snap)or(length(str)=0)then exit;
 
    net_clearbuffer;
-   net_writebyte(nmid_cl_chat);
+   if(team)
+   then net_writebyte(nmid_cl_teamchat)
+   else net_writebyte(nmid_cl_chat);
    net_writestring(str);
    net_send(cl_net_svip,cl_net_svport);
 end;
@@ -65,6 +67,7 @@ pl,pg,
 nstate,
     st : byte;
    _pi : PTPlayer;
+nohans : boolean;
 begin
    with sv_clroom^ do
    begin
@@ -118,34 +121,41 @@ begin
 
          st    :=net_readbyte;
          nstate:=st and %00000111;
-         if(nstate<>ps_gibs)
-         then gids_death:=false
-         else
-         begin
-            gids_death:=true;
-            nstate:=ps_dead;
-         end;
+         nohans:=true;
 
-         if(nstate>=ps_dead)then team:=(st and %00011000) shr 3;
+         if(nstate>=ps_dead)then
+         begin
+            team:=(st and %00011000) shr 3;
+            hits:=net_readsint;
+         end;
          if(nstate> ps_dead)then
          begin
             pg:=gun_curr;
             gun_curr:=(st and %11100000) shr 5;
 
-            x   :=net_readsingle;
-            y   :=net_readsingle;
-            dir :=net_readsingle;
-            hits:=net_readbyte;
+            x      :=net_readsingle;
+            y      :=net_readsingle;
+            dir    :=net_readsingle;
+            armor  :=net_readsint;
+            gun_inv:=net_readbyte;
+            if(cdgun_ammot[gun_curr]>0)then
+              ammo[cdgun_ammot[gun_curr]]:=net_readbyte;
+            if(nstate>=ps_hwalk)then
+            begin
+               hans_mode:=net_readbyte*fr_fpsx1-fr_fpsx1+1;
+               nstate-=2;
+               nohans:=false;
+            end;
 
             if(pi=cl_playeri)then
             begin
-               if(player_antilag)and(gun_curr<>pg)then gun_rld:=0;
+               if(player_antilag)and(gun_curr<>pg)then gun_reload:=0;
                if(not cl_buffer_xy_check(x,y))and(room^.time_scorepause=0)then
                begin
                   vx  :=x;
                   vy  :=y;
                   vdir:=dir;
-                  if(state<ps_walk)then cam_pl:=cl_playeri;
+                  //if(state<ps_walk)then cam_pl:=cl_playeri; ??????????
                end;
             end
             else
@@ -156,16 +166,16 @@ begin
                  vdir:=dir;
               end;
          end;
+         if(nstate=ps_dead)then armor:=0;
 
          player_State(_pi,nstate,false);
+
+         if(nohans)then hans_mode:=0;
 
          if(state>ps_none)then sv_clroom^.cur_clients+=1;
          if(state>ps_spec)then sv_clroom^.cur_players+=1;
 
-         armor   :=0;
-         for st:=1 to AmmoTypesN do ammo[st]:=1;
          gun_next:=gun_curr;
-         gun_inv :=255;
       end;
 
       pn-=1;
@@ -186,10 +196,9 @@ begin
 
       if(state>ps_dead)then
       begin
-         armor   :=net_readbyte;
          for st:=1 to AmmoTypesN do
-         ammo[st]:=net_readbyte;
-         gun_inv :=net_readbyte;
+           if(st<>cdgun_ammot[gun_curr])then
+             ammo[st]:=net_readbyte;
       end;
 
       gdatar_pdata(nil);
@@ -204,14 +213,7 @@ begin
      with g_players[cam_pl] do
       if(state<=ps_spec)then cam_pl:=cl_playeri;
 
-   if(Room_CheckFlag(sv_clroom,sv_g_teams))then
-    with sv_clroom^ do
-    begin
-       FillChar(team_frags,SizeOf(team_frags),0);
-       for pn:=0 to MaxPlayers do
-        with g_players[pn] do
-         if(state>ps_spec)then team_frags[team]+=frags;
-    end;
+   RecountTeamFrags;
 end;
 
 procedure net_MapRequest;
@@ -241,7 +243,7 @@ begin
       if(mi=mi.MaxValue)then
       begin
          net_Disconnect;
-         room_log_add(sv_clroom,log_local,str_NewMapError);
+         room_log_add(sv_clroom,log_local,str_NewMapError,true);
          exit;
       end;
       cl_net_mapi:= mi;
@@ -251,7 +253,7 @@ begin
    cl_net_maprq_t:=0;
 
    i0:=p*NetMapPartSize+1;
-   i1:=min2(i0+NetMapPartSize,MaxMapBuffer);
+   i1:=min2i(i0+NetMapPartSize,MaxMapBuffer);
    with g_maps[cl_net_mapi] do
     while(i0<=i1)do
     begin
@@ -270,12 +272,13 @@ begin
 end;
 
 procedure net_ReadRoomsInfo;
-var i:byte;
+var i,p:byte;
 begin
-   sv_name    :=net_readstring;
+   sv_name      :=net_readstring;
+   sv_maxUpdRate:=net_readbyte;
 
-   sv_ping    :=sdl_GetTicks-net_readcard;
-   sv_ping_str:=c2s(sv_ping);
+   sv_ping      :=sdl_GetTicks-net_readcard;
+   sv_ping_str  :=c2s(sv_ping);
 
    sv_roomsinfo_n:=net_readbyte;
    setlength(sv_roomsinfo,sv_roomsinfo_n);
@@ -288,10 +291,20 @@ begin
         max_players  :=net_readbyte;
         g_flags      :=net_readcard;
         g_fraglimit  :=net_readint;
+        g_spreadlimit:=net_readint;
         g_timelimit  :=net_readbyte;
+        g_teams      :=net_readbyte;
         cur_clients  :=net_readbyte;
         cur_players  :=net_readbyte;
         mname        :=net_readstring;
+        lplayers     := '';
+        for p:=1 to cur_clients do
+          if(length(lplayers)=0)
+          then lplayers:=net_readstring
+          else
+            if(length(lplayers)<255)
+            then lplayers+=','+net_readstring
+            else net_readstring;
      end;
    menu_update :=true;
 end;
@@ -302,7 +315,7 @@ begin
    cl_net_stat :=stat;
    cl_net_roomi:=255;
    menu_update :=true;
-   room_log_add(sv_clroom,log_local,cl_net_stat);
+   room_log_add(sv_clroom,log_local,cl_net_stat,true);
    menu_switch(1);
 end;
 
@@ -327,14 +340,14 @@ begin
       sstr+=',';
       if((length(lstr)+length(sstr))>255)then
       begin
-         room_log_add(sv_clroom,log_local,lstr);
+         room_log_add(sv_clroom,log_local,lstr,true);
          lstr:=sstr;
       end
       else lstr+=sstr;
       bn-=1;
    end;
    if(length(lstr)>0)
-   then room_log_add(sv_clroom,log_local,lstr);
+   then room_log_add(sv_clroom,log_local,lstr,true);
 end;
 
 procedure net_read_maplist;
@@ -351,13 +364,13 @@ begin
       if(m>0)then mapname+=',';
       if((length(lstr)+length(mapname))>255)then
       begin
-         room_log_add(sv_clroom,log_local,lstr);
+         room_log_add(sv_clroom,log_local,lstr,true);
          lstr:=mapname;
       end
       else lstr+=mapname;
    end;
    if(length(lstr)>0)
-   then room_log_add(sv_clroom,log_local,lstr);
+   then room_log_add(sv_clroom,log_local,lstr,true);
 end;
 
 procedure net_clientcode;
@@ -471,7 +484,7 @@ cstate_snap  : begin
                   server_ttl+=1;
                   if(server_ping_p=0)then
                   begin
-                     if(server_ping_t>0)and(server_ping_r=false)and(server_ping<10000)then server_ping+=sdl_GetTicks-server_ping_t;
+                     if(server_ping_t>0)and(not server_ping_r)and(server_ping<10000)then server_ping+=sdl_GetTicks-server_ping_t;
                      server_ping_p:=fr_fpsx2;
                      server_ping_r:=false;
                      server_ping_t:=sdl_GetTicks;
@@ -483,8 +496,7 @@ cstate_snap  : begin
                   end
                   else server_ping_p-=1;
 
-                  if(net_period=0)then
-                  if(cl_playeri<=MaxPlayers)then
+                  if(net_period=0)and(cl_playeri<=MaxPlayers)then
                   with g_players[cl_playeri] do
                   begin
                      net_clearbuffer;
@@ -496,10 +508,15 @@ cstate_snap  : begin
 
                      mid:=0;
 
-                     if(state=ps_spec )and(cl_action=aid_specjoin)then mid:=mid or ((player_team shl 5) and %01100000);
-                     if(player_wswitch)then mid:=mid or %10000000;
-                     if(player_netupd )then mid:=mid or %00010000;
-                     if(player_antilag)then mid:=mid or %00001000;
+                                             mid:=mid or
+                             ((player_wswitch shl 6) and %11000000);
+                     if(state=ps_spec  )and(cl_action=aid_specjoin)
+                                        then mid:=mid or
+                                ((player_team shl 4) and %00110000);
+                                             mid:=mid or
+                              ((player_netupd shl 2) and %00001100);
+                     if(player_antilag )then mid:=mid or %00000010;
+                     if(ClientMenuState)then mid:=mid or %00000001;
 
                      net_writebyte(mid);
                      net_writebyte(cl_action);
@@ -514,15 +531,9 @@ cstate_snap  : begin
                      net_send(cl_net_svip,cl_net_svport);
 
                      cl_action:=0;
+                     net_period:=player_netupd+1;
                   end;
-
-                  if(player_netupd)
-                  then net_period:=0
-                  else
-                  begin
-                     net_period+=1;
-                     net_period:=net_period mod 2;
-                  end;
+                  if(net_period>0)then net_period-=1;
                end;
    end;
 end;

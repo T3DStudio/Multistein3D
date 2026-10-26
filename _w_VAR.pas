@@ -5,12 +5,13 @@ var
 sys_event         : PSDl_Event = nil;
 sys_cycle         : boolean = false;
 
-net_socket        : PUDPSocket = nil;
+net_socket        : PUDPSocket;
 net_socket_port   : word = 0;
 net_buffer        : PUDPpacket = nil;
 net_buffer_pos    : LongInt = 0;
 
 sv_name           : shortstring = '';
+sv_maxUpdRate     : byte        = 0;
 sv_maxrooms       : byte        = 1;
 sv_rooms          : array of TRoom;
 
@@ -30,7 +31,14 @@ fr_FrameCount,
 fr_LastTicks,
 fr_BaseTicks      : cardinal;
 
+log_time          : boolean = true;
+
 {$IFDEF FULLGAME}
+
+{$IFDEF DEBUG}  //debug
+sys_uncappedFPS   : boolean = false;
+sys_draw          : boolean = true;
+{$ENDIF}
 
 demos_s           : array of shortstring;
 demos_l           : array of shortstring;
@@ -57,9 +65,11 @@ server_ttl        : cardinal = 0;
 
 sv_clroom         : PTRoom;
 
-gun_ganim         : array[0..WeaponsN] of byte;
-gun_sanim         : array[0..WeaponsN] of byte;
+gun_ganim         : array[0..WeaponsN] of integer;
+gun_sanim         : array[0..WeaponsN] of integer;
 
+vid_renderN       : integer = -1;
+vid_renderers     : integer = 0;
 vid_window        : PSDL_Window = nil;
 vid_renderer      : PSDL_Renderer = nil;
 vid_dtimage       : TImage;
@@ -67,6 +77,8 @@ vid_rect          : PSDL_rect;
 vid_rctexture     : pSDL_Texture = nil;
 
 show_player_id    : boolean = false;
+show_shortuihints : boolean = true;
+
 spec_LastFrager   : byte = 0;
 spec_AutoFollow   : byte = 0;
 
@@ -78,11 +90,13 @@ vid_agraph_dir_sel: byte = 0;
 
 vid_w             : integer = 800;
 vid_h             : integer = 600;
+vid_renderer_name : shortstring = '';
 
 cl_mode           : byte = 1;
 
 demo_skip         : word = 0;
 demo_play_pause   : boolean = false;
+demo_play_end     : boolean = false;
 demo_record       : boolean = true;
 scores_save       : boolean = true;
 
@@ -93,6 +107,7 @@ menu_lteams       : boolean = false;
 menu_lteamd       : boolean = false;
 menu_itresp       : boolean = true;
 menu_wstay        : boolean = true;
+menu_lflimit      : integer = 0;
 menu_lslimit      : integer = 0;
 menu_ltlimit      : byte = 0;
 menu_lbots        : array[0..MaxTeamsI] of byte;
@@ -156,8 +171,8 @@ sv_ping_str       : shortstring = '--';
 
 player_name       : shortstring = str_DefaultPlayerName;
 player_team       : byte = 0;
-player_wswitch    : boolean = true;
-player_netupd     : boolean = false;
+player_netupd     : byte = 0;
+player_wswitch    : byte = 1;
 player_antilag    : boolean = true;
 player_smooth     : boolean = true;
 player_chat_snd   : boolean = true;
@@ -172,7 +187,7 @@ player_chat3      : shortstring = ':(';
 player_chat4      : shortstring = 'GG';
 player_chat5      : shortstring = 'BG';
 
-chat_line         : boolean = false;
+chat_line         : byte = 0; // 1 - all, 2 - team
 chat_str          : shortstring = '';
 console_str       : shortstring = '';
 
@@ -184,18 +199,6 @@ last_key_t        : byte = 0;
 last_key          : cardinal = 0;
 last_key_m        : integer = 0;
 
-hud_console       : boolean = false;
-hud_last_mesn     : integer = 0;
-hud_mask          : TColor;
-hud_mask_t        : integer = 0;
-hud_noammoclk     : integer = 0;
-hud_chat_y        : integer = 0;
-hud_guni,
-hud_state         : byte;
-hud_hits,
-hud_armor         : integer;
-hud_ammo          : array[0..AmmoTypesN] of integer;
-hud_biggun        : byte = 0;
 hud_text          : array of shortstring;
 hud_textc         : array of PTColor;
 hud_textln        : integer = 0;
@@ -203,7 +206,11 @@ hud_textn         : integer = 0;
 hud_text_scrol    : word = MaxRoomLog-5;
 hud_rcw_charn     : integer = 0;
 hud_rch_lines     : integer = 0;
-hud_scale_prsnt   : byte = 100;
+hud_scale_prsnt   : byte    = 90;
+hud_chat_y        : integer = 0;
+hud_console       : boolean = false;
+hud_last_mesn     : integer = 0;
+
 
 animation_tick    : cardinal = 0;
 
@@ -240,20 +247,27 @@ spr_rcwall_door   : array[0..1] of TRCImage;
 spr_rcwall_hline  : TRCImage;
 spr_rcwall        : array[0..1,'A'..'Z'] of TRCImage;
 spr_rcdecor       : array['a'..'z' ] of TRCImage;
-spr_rcitem        : array[0..16    ] of TRCImage;
+spr_rcitem        : array[0..17    ] of TRCImage;
 spr_rceffect      : array[0..4,0..3] of TRCImage;
-spr_rcflame       : array[0..2     ] of TRCImage;
 spr_rcrocket      : array[0..7     ] of TRCImage;
 spr_rcteam        : array[0..MaxTeamsI,0..SkinSprites] of TRCImage;
+spr_rchans        : array[0..MaxTeamsI,0..SkinSprites] of TRCImage;
 spr_rcelectro     : array[0..4     ] of TRCImage;
-spr_rcmeat        : array[0..4     ] of TRCImage;
+spr_rcflame,
+spr_rcfdeath,
+spr_rctdeath,
+spr_rcmeat        : TRCImageArray;
+spr_rcmenu        : TRCImage;
+spr_HUDMenu       : TImage;
 spr_HUDfont       : array['0'..';' ] of TImage;
 spr_HUDfont_w     : byte = 8;
 spr_HUDfunt_h     : byte = 15;
 spr_HUDpanel      : TImage;
 spr_HUDgun        : array[0..WeaponsN,0..1] of TImage;
+spr_HUDgunXs,
 spr_HUDgunX,
 spr_HUDgunY       : array[0..WeaponsN,0..1] of integer;
+spr_HUDgun_hans   : TImage;
 spr_HUDgun_inv    : array[0..WeaponsN] of TImage;
 spr_HUDteam       : array[0..MaxTeamsI] of TImage;
 spr_HUDface       : array[0..22] of TImage;
@@ -330,6 +344,8 @@ hud_invx,
 hud_invy,
 hud_gunx,
 hud_guny,
+hud_hansx,
+hud_hansy,
 hud_teamx,
 hud_teamy,
 hud_hudhx,
@@ -389,6 +405,8 @@ snd_health,
 snd_score,
 snd_spawn,
 snd_armor,
+snd_hansm,
+snd_hansd,
 snd_mmove   : TALuint;
 snd_gun     : array[0..WeaponsN] of TALuint;
 snd_skinD   : array[0..3] of TALuint;

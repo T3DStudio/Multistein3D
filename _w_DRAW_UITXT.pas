@@ -6,12 +6,18 @@ begin
    case lid of
    log_common     : ;
    log_chat       : logID2Color:=@c_ltlime;
+   log_team0chat,
+   log_team1chat,
+   log_team2chat,
+   log_team3chat,
+   log_teamOchat  : logID2Color:=@c_blue;
    log_matchreset,
    log_winner,
    log_endgame    : logID2Color:=@c_yellow;
    log_suddendeath: logID2Color:=@c_red;
    log_map        : logID2Color:=@c_orange;
    log_local      : logID2Color:=@c_gray;
+   log_localHans  : logID2Color:=@c_ltred;
    log_roomdata   : logID2Color:=@c_aqua;
    end;
 end;
@@ -20,7 +26,7 @@ procedure draw_console(onlylastlog,scroll:word);
 var
 dx,dy,p: integer;
 w      : word;
-procedure _addLine(str:shortstring;col:PTColor);
+procedure addLine(str:shortstring;col:PTColor);
 const passhidecmd : shortstring = 'rcon_password ';
 var i,l:byte;
 begin
@@ -46,19 +52,19 @@ begin
    hud_text [hud_textn-1]:=str;
    hud_textc[hud_textn-1]:=col;
 end;
-procedure _addStr(str:shortstring;col:PTColor);
+procedure addStr(str:shortstring;col:PTColor);
 var l:byte;
 begin
    l:=length(str);
    while true do
     if(l<=hud_rcw_charn)then
     begin
-       _addLine(str,col);
+       addLine(str,col);
        break;
     end
     else
     begin
-       _addLine(copy(str,1,hud_rcw_charn),col);
+       addLine(copy(str,1,hud_rcw_charn),col);
        delete(str,1,hud_rcw_charn);
        l-=hud_rcw_charn;
     end;
@@ -75,12 +81,16 @@ begin
      begin
         with sv_clroom^ do
           with log_l[w] do
-           _addStr(data_string,logID2Color(data_id));
+            if(CheckDestMessage(data_id))then
+            begin
+               addStr(data_string,logID2Color(data_id));
+               onlylastlog-=1;
+            end;
 
-        onlylastlog-=1;
         if(w>0)
         then w-=1
         else w:=MaxRoomLog;
+        if(w=sv_clroom^.log_i)then break;
      end
    else
    begin
@@ -90,9 +100,10 @@ begin
          if(w>MaxRoomLog)then w:=0;
          with sv_clroom^ do
            with log_l[w] do
-             _addStr(data_string,logID2Color(data_id));
+             if(CheckDestMessage(data_id))then
+               addStr(data_string,logID2Color(data_id));
       end;
-      _addStr(console_str+lineCursorBlink,logID2Color(log_chat));
+      addStr(console_str+lineCursorBlink,logID2Color(log_chat));
    end;
 
    dx:=0;
@@ -173,6 +184,7 @@ begin
       end;
    end;
 
+   // sort players
    if(player_listn>1)then
     for p:=0 to player_listn-1 do
      for i:=0 to player_listn-1 do
@@ -212,7 +224,10 @@ begin
       draw_line(dx,dy,scboard_btw,str_sb_time,TimeStr(time_sec,time_min) ,color);dy+=font_lh;
 
       if(g_fraglimit>0)then
-      draw_line(dx,dy,scboard_btw,str_sb_fraglimit,b2s(g_fraglimit),color);
+      draw_line(dx,dy,scboard_btw,str_sb_fraglimit,i2s(g_fraglimit),color);
+
+      if(g_spreadlimit>0)then
+      draw_line(dx,dy,scboard_btw,str_sb_spreadlimit,i2s(g_spreadlimit),color);
 
       dy+=font_lh;
 
@@ -255,6 +270,7 @@ begin
          for p:=0 to MaxTeamsI do
          begin
             t:=teams[p];
+            if(not room_CheckTeam(sv_clroom,t))then continue;
             dy+=font_lh;
 
             draw_text(dx,dy,1,tt[t=player_team]+str_teams[t],ta_left,team_color[t],nil);dx+=scboard_name_w;

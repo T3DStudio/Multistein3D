@@ -1,25 +1,17 @@
 procedure ClearScreen(color:PTColor);
 begin
    with color^ do
-   SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);
+     SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);
    SDL_RenderClear(vid_renderer);
 end;
 
-{procedure draw_get_viewport(x,y,w,h:pinteger);
-begin
-   SDL_RenderGetViewport(_renderer,_rect);
-   if(x<>nil)then x^:=_rect^.x;
-   if(y<>nil)then y^:=_rect^.y;
-   if(w<>nil)then w^:=_rect^.w;
-   if(h<>nil)then h^:=_rect^.h;
-end;  }
 procedure draw_circle(x0,y0,r    :integer;color:PTColor);
 var x,y,
     tx,ty,
     di,error:integer;
 begin
    with color^ do
-   SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);
+     SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);
    SDL_SetRenderDrawBlendMode(vid_renderer,SDL_BLENDMODE_NONE);
 
    di:=r*2;
@@ -52,7 +44,7 @@ begin
       end;
    end;
 end;
-procedure draw_pixel    (x0,y0      :integer;color:PTColor);begin with color^ do SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);SDL_SetRenderDrawBlendMode(vid_renderer,SDL_BLENDMODE_NONE);SDL_RenderDrawPoint(vid_renderer,x0,y0      );end;
+//procedure draw_pixel    (x0,y0      :integer;color:PTColor);begin with color^ do SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);SDL_SetRenderDrawBlendMode(vid_renderer,SDL_BLENDMODE_NONE);SDL_RenderDrawPoint(vid_renderer,x0,y0      );end;
 procedure draw_line     (x0,y0,x1,y1:integer;color:PTColor);begin with color^ do SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);SDL_SetRenderDrawBlendMode(vid_renderer,SDL_BLENDMODE_NONE);SDL_RenderDrawLine (vid_renderer,x0,y0,x1,y1);end;
 
 procedure draw_box      (x0,y0,x1,y1:integer;color:PTColor;blend:boolean);
@@ -63,7 +55,7 @@ begin
    vid_rect^.w:=x1-x0;
    vid_rect^.h:=y1-y0;
    with color^ do SDL_SetRenderDrawColor(vid_renderer,r,g,b,a);
-   SDL_SetRenderDrawBlendMode(vid_renderer,bm[blend]);
+     SDL_SetRenderDrawBlendMode(vid_renderer,bm[blend]);
    SDL_RenderFillRect(vid_renderer,vid_rect);
 end;
 procedure draw_rectangle(x0,y0,x1,y1:integer;color:PTColor);
@@ -113,9 +105,10 @@ begin
          SDL_SetTextureColorMod(texture,r,g,b);
          SDL_SetTextureAlphaMod(texture,a);
       end;
-      if(xscale<>1)then nw:=trunc(w*xscale) else nw:=w;
-      if(yscale<>1)then nh:=trunc(h*yscale) else nh:=h;
-      draw_texture(x,y,nw,nh,texture);
+      if(xscale<>1)then nw:=abs(trunc(w*xscale)) else nw:=w;
+      if(yscale<>1)then nh:=abs(trunc(h*yscale)) else nh:=h;
+      if(xscale<0)then x-=nw;
+      draw_textureEx(x,y,nw,nh,texture,0,xscale<0,yscale<0);
    end;
 end;
 procedure draw_imageEx(x,y:integer;img:PTImage;fcolor:PTColor;blend:boolean;nw,nh:integer);
@@ -142,16 +135,18 @@ begin
    ss:=length(s);
    if(ss>0)then
    begin
-      if(al=ta_middle)then x:=x-round(ss*font_w*size) div 2;
-      if(al=ta_right )then x:=x-round(ss*font_w*size);
-
       w:=round(font_w*size);
+      if(al=ta_middle)then x:=x-(ss*w) div 2;
+      if(al=ta_right )then x:=x-(ss*w);
+
       if(bcolor<>nil)then
-      h:=round(font_h*size);
+      begin
+         h:=round(font_h*size);
+         draw_box(x,y,x+(ss*w),y+h,bcolor,false);
+      end;
       for i:=1 to ss do
       begin
-         if(bcolor<>nil)then draw_box(x,y,x+w,y+h,bcolor,false);
-         if(s[i]<>' ')then draw_image(x,y,@font_ca[s[i]],fcolor,true,size,size);
+         if(s[i]<>#32)then draw_image(x,y,@font_ca[s[i]],fcolor,true,size,size);
          x+=w;
       end;
    end;
@@ -168,13 +163,15 @@ procedure draw_chat_uiline;
 var s:shortstring;
 begin
    draw_box(0,hud_chat_y,vid_w,vid_log_rih,@c_ablack,true);
-   s:=str_say+chat_str+lineCursorBlink;
+   if(chat_line=2)
+   then s:=str_sayTeam+chat_str+lineCursorBlink
+   else s:=str_say    +chat_str+lineCursorBlink;
    if(length(s)<hud_rcw_charn)
    then draw_text(0    ,hud_chat_y,1,s,ta_left ,@c_white,nil)
    else draw_text(vid_w,hud_chat_y,1,s,ta_right,@c_white,nil);
 end;
 
-procedure draw_dHUDt(x,y:integer;s:shortstring;xscale,yscale:single);
+procedure draw_dHUDt(x,y:integer;s:shortstring;xscale,yscale:single;blend:boolean=false);
 var l,i:byte;
 begin
    l:=length(s);
@@ -182,10 +179,10 @@ begin
    begin
       x-=trunc(spr_HUDfont_w*xscale);
       if(s[i]='-')
-      then draw_image(x,y,@spr_HUDfont[';'],@c_white,false,xscale,yscale)
+      then draw_image(x,y,@spr_HUDfont[';'],@c_white,blend,xscale,yscale)
       else
         if(s[i] in hudfont)
-        then draw_image(x,y,@spr_HUDfont[s[i]],@c_white,false,xscale,yscale);
+        then draw_image(x,y,@spr_HUDfont[s[i]],@c_white,blend,xscale,yscale);
    end;
 end;
 
@@ -225,29 +222,10 @@ end;
 
 {$INCLUDE _w_DRAW_UITXT.pas}
 
-procedure draw_HUD_ColorMask;
-begin
-   if(hud_mask_t>0)then
-   begin
-      with hud_mask do a:=min2(hud_mask_t*3,255);
-      hud_mask_t-=1;
-   end
-   else
-     if(hud_mask_t=0)
-     then exit
-     else with hud_mask do a:=255;
-
-   draw_box(
-   hud_gbrc_x,
-   hud_gbrc_y,
-   hud_gbrc_x+hud_gbrc_w,
-   hud_gbrc_y+hud_gbrc_h,@hud_mask,true);
-end;
-
 procedure draw_HUD;
 const HHH : shortstring = ';;;';
 var i,a:integer;
-    t:shortstring;
+    t  :shortstring;
 begin
    if(vid_panelx>0)then
    begin
@@ -263,38 +241,40 @@ begin
       draw_dHUDt(hud_scorex,hud_texty,i2s(frags),hud_fscale,hud_txt_yscale);
       draw_image(hud_teamx ,hud_teamy,@spr_HUDteam[team],@c_white,false,vid_hud_scale,vid_hud_scale);
 
-      if(gun_curr<=WeaponsN)and(state>ps_dead)then
+      if(state>ps_dead)then
       begin
-         if(cam_pl=cl_playeri)or(bot)then
+         if(hans_mode>0)then
          begin
-            if(0<gun_ammot[gun_curr])and(gun_ammot[gun_curr]<=AmmoTypesN)
-            then draw_dHUDt(hud_ammox,hud_texty,i2s(hud_ammo[gun_ammot[gun_curr]]),hud_fscale,hud_txt_yscale)
-            else draw_dHUDt(hud_ammox,hud_texty,HHH,hud_fscale,hud_txt_yscale);
+            draw_dHUDt(hud_ammox,hud_texty,HHH,hud_fscale,hud_txt_yscale);
+            i:=byte(gun_reload>gun_ganim[3]);
+            draw_image(vid_log_hw+spr_HUDgunXs[3,i],spr_HUDguny[3,i],@spr_HUDgun[3,i],@c_white,true, vid_hud_scale,vid_hud_scale);
+            draw_image(vid_log_hw-spr_HUDgunXs[3,i],spr_HUDguny[3,i],@spr_HUDgun[3,i],@c_white,true,-vid_hud_scale,vid_hud_scale);
+            draw_image(hud_gunx,hud_guny,@spr_HUDgun_hans,@c_white,true,vid_hud_scale,vid_hud_scale);
+            draw_dHUDt(hud_hansx,hud_hansy,i2s((hud_hans div fr_fpsx1)+1),hud_fscale,hud_txt_yscale,true);
          end
-         else draw_dHUDt(hud_ammox,hud_texty,HHH,hud_fscale,hud_txt_yscale);
+         else
+           if(gun_curr<=WeaponsN)then
+           begin
+              if(0<cdgun_ammot[gun_curr])and(cdgun_ammot[gun_curr]<=AmmoTypesN)
+              then draw_dHUDt(hud_ammox,hud_texty,i2s(hud_ammo[cdgun_ammot[gun_curr]]),hud_fscale,hud_txt_yscale)
+              else draw_dHUDt(hud_ammox,hud_texty,HHH,hud_fscale,hud_txt_yscale);
 
-         i:=byte(gun_rld>gun_ganim[gun_curr]);
-         draw_image(spr_HUDgunx[gun_curr,i],spr_HUDguny[gun_curr,i],@spr_HUDgun[gun_curr,i],@c_white,true,vid_hud_scale,vid_hud_scale);
+              i:=byte(gun_reload>gun_ganim[gun_curr]);
+              draw_image(spr_HUDgunx[gun_curr,i],spr_HUDguny[gun_curr,i],@spr_HUDgun[gun_curr,i],@c_white,true,vid_hud_scale,vid_hud_scale);
 
-         draw_image(hud_gunx,hud_guny,@spr_HUDgun_inv[gun_curr],@c_white,false,vid_hud_scale,vid_hud_scale);
-      end;
-
-      draw_dHUDt(hud_hitsx ,hud_texty,i2s(mm3i(0,hud_hits ,Player_max_hits )),hud_fscale,hud_txt_yscale);
-
-      if(cam_pl=cl_playeri)or(bot)then
-      begin
+              draw_image(hud_gunx,hud_guny,@spr_HUDgun_inv[gun_curr],@c_white,false,vid_hud_scale,vid_hud_scale);
+           end;
+         draw_dHUDt(hud_hitsx ,hud_texty,i2s(mm3i(0,hud_hits ,Player_max_hits )),hud_fscale,hud_txt_yscale);
          draw_dHUDt(hud_armorx,hud_texty,i2s(mm3i(0,hud_armor,Player_max_armor)),hud_fscale,hud_txt_yscale);
 
-         if(state>ps_dead)then
-          for i:=0 to WeaponsN do
+         for i:=0 to WeaponsN do
            if(i=gun_curr)
            then draw_text(hud_invx+(i*hud_invix),hud_invy,hud_ifscale,b2s(i+1),ta_left,@c_yellow,nil)
            else
-             if(hud_guni and (1 shl i))>0
+             if(hud_gun_inv and (1 shl i))>0
              then draw_text(hud_invx+(i*hud_invix),hud_invy,hud_ifscale,b2s(i+1),ta_left,@c_green ,nil)
              else draw_text(hud_invx+(i*hud_invix),hud_invy,hud_ifscale,b2s(i+1),ta_left,@c_dgray ,nil);
-      end
-      else draw_dHUDt(hud_armorx,hud_texty,HHH,hud_fscale,hud_txt_yscale);
+      end;
 
       if(hits<=0)
       then i:=21
@@ -318,40 +298,55 @@ begin
           else i:=((6-mm3i(0,hits div 15,6))*3)+a;
        end;
       draw_image(hud_hudhx,hud_hudhy,@spr_HUDface[i],@c_white,false,vid_hud_scale,vid_hud_scale);
+      if(menustate)then
+        draw_image(hud_hudhx,hud_hudhy,@spr_HUDMenu,@c_white,false,vid_hud_scale,vid_hud_scale);
    end;
 
-   draw_HUD_ColorMask;
+   with g_players[cam_pl] do
+     if(state>ps_spec)and(hud_mask_t>0)then
+       draw_box(
+          hud_gbrc_x,
+          hud_gbrc_y,
+          hud_gbrc_x+hud_gbrc_w,
+          hud_gbrc_y+hud_gbrc_h,@hud_mask,true);
 
-   if(server_ttl>fr_fpsx2)
+   if(server_ttl>fr_fpsx1)
    then draw_text(vid_msg_x,vid_msg_y,menu_font_scale,str_awaitingsrv,ta_middle,@c_white,nil)
    else
      if(cl_net_cstat=cstate_snap)and(cl_net_mpartn<=NetMapParts)
      then draw_text(vid_msg_x,vid_msg_y,menu_font_scale,str_mapdownload,ta_middle,@c_white,nil);
 
-   //if(hud_suddend_msg>0)then
    if(CheckSuddenDeathState)
    then draw_text(vid_vote_x,vid_suddend_y,2,str_suddendeath,ta_middle,@c_dred,nil);
 
    with sv_clroom^ do
-    if(vote_time>0)then
-    begin
-       t:=str_vote+vote_cmd;
-       if(length(vote_arg)>0)then t+=' '+vote_arg;
-       t+=' ('+w2s(vote_time div fr_fpsx1)+')';
+     if(vote_time>0)then
+     begin
+        t:=str_vote+vote_cmd;
+        if(length(vote_arg)>0)then t+=' '+vote_arg;
+        t+=' ('+w2s(vote_time div fr_fpsx1)+')';
 
-       draw_text(vid_vote_x,vid_vote_y,menu_font_scale,t,ta_middle,@c_white,nil);
-    end;
+        draw_text(vid_vote_x,vid_vote_y,menu_font_scale,t,ta_middle,@c_white,nil);
+     end;
 
    with g_players[cl_playeri] do
     if(state=ps_spec)then
     begin
-       with sv_clroom^ do
-        if(cl_net_cstat>0)or(menu_locmatch)then
-         if(cur_players>=max_players)
-         then draw_text(vid_log_hw,hud_pl_staty0,menu_font_scale,str_specmode+str_roomfull                      ,ta_middle,@c_white,@c_black)
-         else draw_text(vid_log_hw,hud_pl_staty0,menu_font_scale,str_specmode+str_tojoin+'"'+GetKeyName(a_J)+'"',ta_middle,@c_white,@c_black);
+       if(show_shortuihints)then
+       begin
+          with sv_clroom^ do
+           if(cl_net_cstat>0)or(menu_locmatch)then
+            if(cur_players>=max_players)
+            then draw_text(vid_log_hw,hud_pl_staty0,menu_font_scale,str_specmode+str_roomfull,ta_middle,@c_white,@c_black)
+            else
+              if(not room_CheckTeam(sv_clroom,player_team))
+              then draw_text(vid_log_hw,hud_pl_staty0,menu_font_scale,str_specmode+str_wrongteam+'('+str_teams[player_team]+').',ta_middle,@c_white,@c_black)
+              else draw_text(vid_log_hw,hud_pl_staty0,menu_font_scale,str_specmode+str_tojoin+'"'+GetKeyName(a_J)+'"',ta_middle,@c_white,@c_black);
 
-       draw_text(vid_log_hw,hud_pl_staty1,menu_font_scale,str_follow_use+' "'+GetKeyName(a_WN)+'/'+GetKeyName(a_WP)+'" '+str_follow_cycle,ta_middle,@c_white,@c_black);
+          {$IFNDEF TPOSTER}
+          draw_text(vid_log_hw,hud_pl_staty1,menu_font_scale,str_follow_use+' "'+GetKeyName(a_WN)+'/'+GetKeyName(a_WP)+'" '+str_follow_cycle,ta_middle,@c_white,@c_black);
+          {$ENDIF}
+       end;
 
        if(cam_pl<>cl_playeri)then
          case spec_AutoFollow of
@@ -362,14 +357,20 @@ begin
     end
     else
       if(cl_net_cstat>0)or(menu_locmatch)then
-        if(state=ps_dead)and(cam_pl=cl_playeri)and(hits<=0)then draw_text(vid_log_hw,hud_pl_staty1,menu_font_scale,str_respawn+'"'+GetKeyName(a_A)+'"',ta_middle,@c_white,@c_black);
+        if(state=ps_dead)and(hits<=0)and(cam_pl=cl_playeri)then draw_text(vid_log_hw,hud_pl_staty1,menu_font_scale,str_respawn+'"'+GetKeyName(a_A)+'"',ta_middle,@c_white,@c_black);
 
    with sv_clroom^ do
-    if(demo_cstate=ds_read)and(demo_file<>nil)and(demo_size>0)then
-     Draw_Box(0,vid_h-font_hh,round(vid_w*FilePos(demo_file^)/demo_size),vid_h,@c_yellow,false);
+    if(demo_cstate=ds_read)and(demo_file<>nil)and(demo_size_body>0)then
+    begin
+       Draw_Box(0,vid_h-font_hh,round(vid_w/demo_size_body*(FilePos(demo_file^)-demo_fpos_l[0].dp_fpos)),vid_h,@c_yellow,false);
+       if(demo_play_end)
+       then draw_text(2,vid_h-font_h-font_hh,1,str_demo_End,ta_left,@c_white,@c_black)
+       else
+         if(demo_play_pause)then draw_text(2,vid_h-font_h-font_hh,1,str_demo_Pause,ta_left,@c_white,@c_black);
+    end;
 
    if(player_showtime)then
-    with sv_clroom^ do draw_text(vid_log_hw,vid_h-font_h,1,TimeStr(time_sec,time_min),ta_middle,@c_white,@c_black);
+     with sv_clroom^ do draw_text(vid_log_hw,vid_h-font_h,1,TimeStr(time_sec,time_min),ta_middle,@c_white,@c_black);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -403,18 +404,27 @@ begin
   // if(hud_gborder_w>0)then
    //draw_box(0,0,vid_log_w,vid_log_rh,@c_daqua,false);
 
+   {$IFDEF DEBUG}  //debug
+   if(not sys_draw)then exit;
+   {$ENDIF}
+
    draw_rc;
    draw_HUD;
 
-   if(chat_line)then draw_chat_uiline;
+   {$IFDEF TPOSTER}
+   draw_text(vid_log_hw,menu_ystep  ,menu_font_scale*4,str_mcaption    ,ta_middle,@c_white ,nil);
+   draw_text(vid_log_hw,menu_ystep*5,menu_font_scale*3,'2x2 TOURNAMENT',ta_middle,@c_white ,nil);
+   {$ENDIF}
+
+   if(chat_line>0)then draw_chat_uiline;
 
    if(not hud_console)then
    begin
       if(cl_acts[a_S]>0)
       or(sv_clroom^.time_scorepause>0)
       then draw_scoreboard;
-
-      draw_last_message;
+      if(cl_acts[a_S]=0)or(sv_clroom^.time_scorepause>0)
+      then draw_last_message;
    end;
 
    //debug_draw_map;
@@ -499,6 +509,11 @@ begin
    draw_text(vid_log_w,60,1,w2s(net_packets_in0 ) ,ta_right,@c_lime);
    draw_text(vid_log_w,70,1,w2s(net_packets_out0) ,ta_right,@c_red );
    }
+   {if(cam_pl<=MaxPlayers)then
+      with g_players[cam_pl] do
+      begin
+      draw_text(5,5,1,b2s(byte(menustate)),ta_left,@c_white,nil );
+      end; }
 
    {if(cl_playeri<=MaxPlayers)then
    with g_players[cl_playeri] do

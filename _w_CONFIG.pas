@@ -31,6 +31,7 @@ cfg_max_corpses        = 'max_corpses';
 cfg_demo_record        = 'demo_record';
 cfg_vid_w              = 'vid_w';
 cfg_vid_h              = 'vid_h';
+cfg_vid_render         = 'vid_render';
 cfg_hud_scale          = 'hud_scale';
 
 cfg_key                = 'key_';
@@ -79,8 +80,8 @@ cfg_sound_volume   : snd_volume       := vrb;
 cfg_server_addr    : cl_net_svaddr    := vr;
 cfg_cam_height     : vid_rc_newz      := vrb>0;
 cfg_fullscreen     : vid_fullscreen   := vrb>0;
-cfg_net_update     : player_netupd    := vrb>0;
-cfg_weapon_switch  : player_wswitch   := vrb>0;
+cfg_net_update     : player_netupd    := vrb;
+cfg_weapon_switch  : player_wswitch   := vrb;
 cfg_weapon_antilag : player_antilag   := vrb>0;
 cfg_move_smooth    : player_smooth    := vrb>0;
 cfg_show_time      : player_showtime  := vrb>0;
@@ -99,6 +100,8 @@ cfg_max_corpses    : player_maxcorpses:= s2i(vr);
 cfg_demo_record    : demo_record      := vrb>0;
 cfg_vid_w          : vid_w            := s2i(vr);
 cfg_vid_h          : vid_h            := s2i(vr);
+cfg_vid_render     : if(length(vid_renderer_name)=0)
+                then vid_renderer_name:= vr;
 cfg_hud_scale      : hud_scale_prsnt  := vrb;
    else
      for i:=0 to 255 do
@@ -160,6 +163,9 @@ begin
 
    txt_ValidateAddr;
 
+   if(player_netupd>net_MaxUpdRate)then player_netupd:=net_MaxUpdRate;
+   if(player_wswitch>2)then player_wswitch:=2;
+
    vid_w :=mm3i(vid_min_w,vid_w,vid_max_w);
    vid_h :=mm3i(vid_min_h,vid_h,vid_max_h);
 
@@ -202,7 +208,7 @@ begin
    writeln(f,cfg_server_addr    ,cfg_param_sep,cl_net_svaddr        );
    writeln(f,cfg_cam_height     ,cfg_param_sep,byte(vid_rc_newz    ));
    writeln(f,cfg_fullscreen     ,cfg_param_sep,byte(vid_fullscreen ));
-   writeln(f,cfg_net_update     ,cfg_param_sep,byte(player_netupd  ));
+   writeln(f,cfg_net_update     ,cfg_param_sep,     player_netupd   );
    writeln(f,cfg_weapon_switch  ,cfg_param_sep,byte(player_wswitch ));
    writeln(f,cfg_weapon_antilag ,cfg_param_sep,byte(player_antilag ));
    writeln(f,cfg_move_smooth    ,cfg_param_sep,byte(player_smooth  ));
@@ -221,6 +227,7 @@ begin
    writeln(f,cfg_demo_record    ,cfg_param_sep,byte(demo_record)    );
    writeln(f,cfg_vid_w          ,cfg_param_sep,vid_w                );
    writeln(f,cfg_vid_h          ,cfg_param_sep,vid_h                );
+   writeln(f,cfg_vid_render     ,cfg_param_sep,vid_renderer_name    );
    writeln(f,cfg_hud_scale      ,cfg_param_sep,hud_scale_prsnt      );
 
    if(vid_agraph_dir_n>0)then
@@ -231,8 +238,9 @@ begin
    for i:=0 to 255 do
      if(i in cfg_cl_keys)then
      begin
-        writeln(f,cfgclks(i,true ),cfg_param_sep,cl_keys_t[i]);
-        writeln(f,cfgclks(i,false),cfg_param_sep,cl_keys  [i]);
+        writeln(f,cfgclks(i,true ),cfg_param_sep,cl_keys_t [i]);
+        writeln(f,cfgclks(i,false),cfg_param_sep,cl_keys   [i]);
+        writeln(f,cfg_key,i       ,cfg_param_sep,GetKeyName(i));
      end;
 
    close(f);

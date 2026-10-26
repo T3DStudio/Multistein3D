@@ -112,13 +112,14 @@ begin
      then G_Mouse(cl_acts[a_TR]-cl_acts[a_TL]);
 end;
 
-procedure G_Chat;
+procedure G_ChatInput;
 begin
    if(cl_acts[a_menter1]=1)then
    begin
-      client_ChatCommand(chat_str);
+      if(length(chat_str)>0)then
+        client_ChatCommand(chat_str,chat_line=2);
       chat_str :='';
-      chat_line:=false;
+      chat_line:=0;
    end
    else textedit(@chat_str ,chars_common ,ChatLen);
 end;
@@ -148,7 +149,7 @@ begin
    begin
       if(not GameParseCommand(console_str))then
        if(cl_net_cstat<cstate_snap)
-       then room_log_add(sv_clroom,log_local,str_notallowedcmd)
+       then room_log_add(sv_clroom,log_local,str_notallowedcmd,true)
        else net_SendCommand(console_str);
 
       if(console_historyi>MaxRoomLog)
@@ -189,50 +190,60 @@ end;
 procedure G_GameInput;
 begin
    if(cl_acts[a_menu]=1)then
-    if(chat_line)
-    then chat_line:=false
+    if(chat_line>0)
+    then chat_line:=0
     else
     begin
        menu_switch(255);
+       menu_update:=true;
        exit;
     end;
 
-   if(chat_line)then
+   if(chat_line>0)then
    begin
-      G_Chat;
+      G_ChatInput;
       exit;
    end
    else
    begin
       if(cl_acts[a_T]=1)then
       begin
-         chat_line:=true;
+         chat_line:=1;
+         exit;
+      end;
+      if(cl_acts[a_TT]=1)then
+      begin
+         chat_line:=2;
          exit;
       end;
 
+      {$IFDEF DEBUG}
+      if(cl_acts[a_debug_draw]=1)then sys_draw:=not sys_draw;
+      if(cl_acts[a_debug_fast]=1)then sys_uncappedFPS:=not sys_uncappedFPS;
+      {$ENDIF}
+
       if(cl_acts[a_alt]=0)then
       begin
-      if(cl_acts[a_C1    ]=1)then client_ChatCommand(player_chat1)else
-      if(cl_acts[a_C2    ]=1)then client_ChatCommand(player_chat2)else
-      if(cl_acts[a_C3    ]=1)then client_ChatCommand(player_chat3)else
-      if(cl_acts[a_C4    ]=1)then client_ChatCommand(player_chat4)else
-      if(cl_acts[a_C5    ]=1)then client_ChatCommand(player_chat5);
+      if(cl_acts[a_C1    ]=1)then client_ChatCommand(player_chat1,false)else
+      if(cl_acts[a_C2    ]=1)then client_ChatCommand(player_chat2,false)else
+      if(cl_acts[a_C3    ]=1)then client_ChatCommand(player_chat3,false)else
+      if(cl_acts[a_C4    ]=1)then client_ChatCommand(player_chat4,false)else
+      if(cl_acts[a_C5    ]=1)then client_ChatCommand(player_chat5,false);
 
       if(cl_acts[a_votey ]=1)then net_SendCommand(cmd_voteyes)else
       if(cl_acts[a_voten ]=1)then net_SendCommand(cmd_voteno );
       end;
 
       if(cl_acts[a_dpause]=1)then demo_play_pause:=not demo_play_pause;
-      if(cl_acts[a_dskipb]=1)then
+      if(cl_acts[a_dskipb]=1)or(cl_acts[a_dskipb]>fr_fpsh2)then
       begin
-         demo_setpos(sv_clroom,sv_clroom^.demo_fpos_t-(fr_fpsx1*5));
+         demo_setpos(sv_clroom,-fr_fpsx1*5);
          exit;
       end;
-      if(cl_acts[a_dskipf]=1)then
+      if(cl_acts[a_dskipf]=1)or(cl_acts[a_dskipf]>fr_fpsh2)then
       begin
-         if(demo_play_pause)
-         then demo_skip:=2
-         else demo_skip:=(fr_fpsx1 div demo_timer1_period)*10;
+         if(not demo_setpos(sv_clroom, fr_fpsx1*5))
+         then demo_skip+=fr_fpsx1*5;
          exit;
       end;
    end;
@@ -386,24 +397,25 @@ function G_CommonInput:boolean;
 begin
    G_CommonInput:=false;
 
-   if(cl_acts[a_alt]>1)then
-    if(cl_acts[a_enter]=1)then
-    begin
-       ScreenToggleWindowed;
-       ActKeysClear;
-       exit;
-    end;
-   if(not hud_console)then
-    if(cl_acts[a_SS]=1)then
-    begin
-       MakeScreenShot(sv_clroom^.mapname);
-       ActKeysClear;
-       exit;
-    end;
+   if(not hud_console)and(chat_line=0)and(menu_sfix=-1)then
+   begin
+      if(cl_acts[a_alt]>1)then
+        if(cl_acts[a_enter]=1)then
+        begin
+           ScreenToggleWindowed;
+           ActKeysClear;
+           exit;
+        end;
+      if(cl_acts[a_SS]=1)then
+      begin
+         MakeScreenShot(sv_clroom^.mapname);
+         ActKeysClear;
+         exit;
+      end;
+   end;
    if(cl_acts[a_CO]=1)then
    begin
       ToggleConsole;
-
       exit;
    end;
    if(hud_console)then

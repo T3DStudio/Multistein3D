@@ -35,7 +35,7 @@ begin
          exit;
       end;
 
-      map_new(str_RemoveExt(fn));
+      map_new(str_RemoveMapExt(fn));
 
       t:=0;
       w:=0;

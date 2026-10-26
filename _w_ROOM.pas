@@ -1,13 +1,12 @@
 
 {$IFDEF FULLGAME}
-
 procedure eff_MissileExplode(amissile:PTMissile);
 begin
    with amissile^ do
    begin
       case mtype of
       gpt_fire  : begin
-                     cl_eff_add(mx,my,0,1.15,eid_fire);
+                     cl_eff_add(mx,my,0,0.8,eid_fire);
                      Sound_PlaySource(snd_fire   ,nil,nil,mx,my);
                   end;
       gpt_rocket: begin
@@ -18,8 +17,16 @@ begin
       mtype:=0;
    end;
 end;
-
 {$ENDIF}
+
+function room_CheckTeam(aroom:PTRoom;team:byte):boolean;
+begin
+   room_CheckTeam:=false;
+   if(Room_CheckFlag(aroom,sv_g_teams))then
+     with aroom^ do
+       if(not GetBBit(g_teams,team))then exit;
+   room_CheckTeam:=true;
+end;
 
 procedure room_PlayersKickAll(aroom:PTRoom);
 var p:byte;
@@ -100,7 +107,7 @@ begin
    room_ObjectsResetAll(aroom);
    with aroom^ do FillChar(team_frags,SizeOf(team_frags),0);
    room_PlayersResetAll(aroom);
-   room_log_add(aroom,log_matchreset,str_resetmatch);
+   room_log_add(aroom,log_matchreset,str_resetmatch,false);
    {$IFDEF FULLGAME}
    ClearClientEffects;
    {$ENDIF}
@@ -133,8 +140,8 @@ begin
       end
       else
         for p:=0 to MaxTeamsI do
-          if(str_teams       [p]=team_name)
-          or(str_teams_shorts[p]=team_name)then
+          if(str_teams[p]   =team_name)
+          or(str_teams[p][1]=team_name)then
           begin
              bot_maxt[p]+=1;
              break;
@@ -167,24 +174,29 @@ begin
       setlength(r_missile_l,0);r_missile_n:=0;
       setlength(maplist_l  ,0);maplist_n  :=0;
 
-      maplist_cur :=0;
-      cur_clients :=0;
-      cur_players :=0;
-      max_clients :=MaxPlayers;
-      max_players :=MaxPlayers;
-      g_fraglimit :=0;
-      g_timelimit :=0;
-      g_flags     :=0;
-      time_tick   :=0;
-      time_sec    :=0;
-      time_min    :=0;
-      rname       :='Default room';
-      g_scorepause:=fr_fpsx1*30;
-      g_deathtime :=fr_fpsx1*10;
-      scores_save_need:=false;
-      vote_ratio  := 0.5;
-      vote_time   := 0;
-      vote_cmd    := '';
+      maplist_cur  :=0;
+      cur_clients  :=0;
+      cur_players  :=0;
+      max_clients  :=MaxPlayers;
+      max_players  :=MaxPlayers;
+      g_fraglimit  :=0;
+      g_spreadlimit:=0;
+      g_timelimit  :=0;
+      g_flags      :=0;
+      g_teams      :=%1111;
+      time_tick    :=0;
+      time_sec     :=0;
+      time_min     :=0;
+      rname        :='Default room';
+      g_scorepause :=fr_fpsx1*30;
+      g_deathtime  :=fr_fpsx1*10;
+      scores_save_need
+                   :=false;
+      vote_ratio   := 0.5;
+      vote_time    := 0;
+      vote_execDelay
+                   := 0;
+      vote_cmd     := '';
 
       bot_skill_default:=50;
       bot_cur     :=0;
@@ -246,13 +258,13 @@ mgr_item_armor     : begin  // armor
     {$IFDEF FULLGAME}isprite           := 0;{$ENDIF}
                      end;
 mgr_item_mp40      : begin  // mp40
-                     iweapon           := gun_bit[2];
+                     iweapon           := cdgun_bit[2];
                      iammo[ammo_bullet]:= 15;
                      irespm            := fr_fpsx1*10;
     {$IFDEF FULLGAME}isprite           := 1;{$ENDIF}
                      end;
 mgr_item_chaingun  : begin  // chaingun
-                     iweapon           := gun_bit[3];
+                     iweapon           := cdgun_bit[3];
                      iammo[ammo_bullet]:= 30;
                      irespm            := fr_fpsx1*20;
     {$IFDEF FULLGAME}isprite           := 2;{$ENDIF}
@@ -289,25 +301,25 @@ mgr_item_mega      : begin  // mega
     {$IFDEF FULLGAME}isprite           := 8;{$ENDIF}
                      end;
 mgr_item_rifle     : begin  // rifle
-                     iweapon           := gun_bit[4];
+                     iweapon           := cdgun_bit[4];
                      iammo[ammo_rifle] := 5;
                      irespm            := fr_fpsx1*10;
     {$IFDEF FULLGAME}isprite           := 9;{$ENDIF}
                      end;
 mgr_item_flame     : begin  // flamethrower
-                     iweapon           := gun_bit[5];
+                     iweapon           := cdgun_bit[5];
                      iammo[ammo_flame] := 30;
                      irespm            := fr_fpsx1*20;
     {$IFDEF FULLGAME}isprite           := 10;{$ENDIF}
                      end;
 mgr_item_panzer    : begin  // panzerfaust
-                     iweapon           := gun_bit[6];
+                     iweapon           := cdgun_bit[6];
                      iammo[ammo_rocket]:= 4;
                      irespm            := fr_fpsx1*20;
     {$IFDEF FULLGAME}isprite           := 11;{$ENDIF}
                      end;
 mgr_item_tesla     : begin  // tesla
-                     iweapon           := gun_bit[7];
+                     iweapon           := cdgun_bit[7];
                      iammo[ammo_tesla] := 3;
                      irespm            := fr_fpsx1*30;
     {$IFDEF FULLGAME}isprite           := 12;{$ENDIF}
@@ -323,7 +335,7 @@ mgr_item_ammoflame : begin  // ammo flame
     {$IFDEF FULLGAME}isprite           := 14;{$ENDIF}
                      end;
 mgr_item_ammopanzer: begin  // ammo panzer
-                     iammo[ammo_rocket]:= 5;
+                     iammo[ammo_rocket]:= 4;
                      irespm            := fr_fpsx1*20;
     {$IFDEF FULLGAME}isprite           := 15;{$ENDIF}
                      end;
@@ -331,6 +343,14 @@ mgr_item_ammotesla : begin  // ammo tesla
                      iammo[ammo_tesla] := 3;
                      irespm            := fr_fpsx1*30;
     {$IFDEF FULLGAME}isprite           := 16;{$ENDIF}
+                     end;
+mgr_item_hansmode  : begin  // hans mode
+                     ihealth           := 100;
+                     iarmor            := 100;
+                     ihans             := fr_fpsx1*30;
+                     irespm            := fr_fpsx1*90;
+                     irespmR           := fr_fpsx1*30;
+    {$IFDEF FULLGAME}isprite           := 17;{$ENDIF}
                      end;
          else
          end;
@@ -342,40 +362,71 @@ mgr_item_ammotesla : begin  // ammo tesla
    end;
 end;
 
-function Room_GetWinner(aroom:PTRoom;logstr:pshortstring):boolean; // true if single winner
-var p,wp1    :byte;
+function Room_GetWinner(aroom:PTRoom;logstr:pshortstring;pf1,pf2:pinteger):boolean; // true if single winner
+var p,wp1,wp2:byte;
       wf1,wf2:integer;
 begin
+   wf1:=wf1.MinValue;
+   wp1:=255;
+   wf2:=wf2.MinValue;
+   wp2:=255;
    with aroom^ do
-   begin
-      wf1:=wf1.MinValue;
-      wp1:=255;
-      wf2:=wf2.MinValue;
-      if(Room_CheckFlag(aroom,sv_g_teams))then
-      begin
-         for p:=0 to MaxTeamsI do
+     if(Room_CheckFlag(aroom,sv_g_teams))then
+     begin
+        // 1st
+        for p:=0 to MaxTeamsI do
           if(team_frags[p]>=wf1)then
           begin
-             wf2:=wf1;
              wp1:=p;
              wf1:=team_frags[p];
           end;
-         if(wp1<255)and(logstr<>nil)then logstr^:=str_teams[wp1]+' '+str_team+' '+str_cwin+' ('+str_score+': '+i2s(wf1)+')';
-      end
-      else
-      begin
-         for p:=0 to MaxPlayers do
+        // 2nd
+        for p:=0 to MaxTeamsI do
+          if(team_frags[p]>=wf2)and(p<>wp1)then
+          begin
+             wp2:=p;
+             wf2:=team_frags[p];
+          end;
+        if(wp1<255)and(logstr<>nil)then logstr^:=str_teams[wp1]+' '+str_team+' '+str_cwin+' ('+str_score+': '+i2s(wf1)+')';
+     end
+     else
+     begin
+        // 1st
+        for p:=0 to MaxPlayers do
           with g_players[p] do
-           if(state>ps_spec)and(aroom=room)and(frags>=wf1)then
-           begin
-              wf2:=wf1;
-              wp1:=p;
-              wf1:=frags;
-           end;
-         if(wp1<255)and(logstr<>nil)then logstr^:=g_players[wp1].name+str_cwin+' ('+str_score+': '+i2s(wf1)+')';
-      end;
-   end;
+            if(state>ps_spec)and(aroom=room)and(frags>=wf1)then
+            begin
+               wp1:=p;
+               wf1:=frags;
+            end;
+        // 2nd
+        for p:=0 to MaxPlayers do
+          with g_players[p] do
+            if(state>ps_spec)and(aroom=room)and(frags>=wf2)and(p<>wp1)then
+            begin
+               wp2:=p;
+               wf2:=frags;
+            end;
+        if(wp1<255)and(logstr<>nil)then logstr^:=g_players[wp1].name+str_cwin+' ('+str_score+': '+i2s(wf1)+')';
+     end;
+   if(pf1<>nil)then pf1^:=wf1;
+   if(pf2<>nil)then pf2^:=wf2;
    Room_GetWinner:=wf1<>wf2;
+end;
+
+function str2RTeams(s:shortstring):byte;
+var t:byte;
+begin
+   str2RTeams:=0;
+   for t:=0 to MaxTeamsI do
+     if(pos(str_teams[t][1],s)>0)then str2RTeams:=str2RTeams or (1 shl t);
+end;
+function RTeams2str(f:byte):shortstring;
+var t:byte;
+begin
+   RTeams2str:='    ';
+   for t:=0 to MaxTeamsI do
+     if((f and (1 shl t))>0)then RTeams2str[t+1]:=str_teams[t][1];
 end;
 
 function str2RFlags(s:shortstring):cardinal;
@@ -438,14 +489,16 @@ begin
       {$I+}
       if(ioresult=0)then
       begin
-         _line(rcfg_servername+';'+sv_name    );
-         _line(rcfg_roomname  +';'+rname      );
-         _line(rcfg_maxplayers+';'+b2s(max_players));
-         _line(rcfg_maxclients+';'+b2s(max_clients));
-         _line(rcfg_timelimit +';'+b2s(g_timelimit));
-         _line(rcfg_fraglimit +';'+i2s(g_fraglimit));
-         _line(rcfg_flags     +';'+RFlags2Str(g_flags));
-         _line('TIME'         +';'+w2s(time_min)+':'+w2s(time_sec));
+         _line(rcfg_servername +';'+sv_name    );
+         _line(rcfg_roomname   +';'+rname      );
+         _line(rcfg_maxplayers +';'+b2s(max_players  ));
+         _line(rcfg_maxclients +';'+b2s(max_clients  ));
+         _line(rcfg_timelimit  +';'+b2s(g_timelimit  ));
+         _line(rcfg_fraglimit  +';'+i2s(g_fraglimit  ));
+         _line(rcfg_spreadlimit+';'+i2s(g_spreadlimit));
+         _line(rcfg_flags      +';'+RFlags2Str(g_flags));
+         _line(rcfg_teams      +';'+RTeams2Str(g_teams));
+         _line('TIME'          +';'+w2s(time_min)+':'+w2s(time_sec));
          _line('');
          _line(scores_message);
          _line('');
@@ -489,12 +542,17 @@ var winnerstr:shortstring;
 begin
    aroom^.time_scorepause:=aroom^.g_scorepause;
 
-   Room_GetWinner(aroom,@winnerstr);
+   Room_GetWinner(aroom,@winnerstr,nil,nil);
    if(length(winnerstr)>0)
-   then room_log_add(aroom,log_winner,winnerstr);
+   then room_log_add(aroom,log_winner,winnerstr,false);
 
    {$IFNDEF FULLGAME}
    Room_WriteScores(aroom);
+   {$ELSE}
+   {$IFDEF DEBUG}
+   sys_uncappedFPS:=false;
+   sys_draw:=true;
+   {$ENDIF}
    {$ENDIF}
 end;
 
@@ -508,13 +566,13 @@ begin
 
       if(g_timelimit>0)then
        if(time_min>=g_timelimit)then
-        if(Room_GetWinner(aroom,nil))then
+        if(Room_GetWinner(aroom,nil,nil,nil))then
         begin
-           room_log_add(aroom,log_endgame,str_timelimithit);
+           room_log_add(aroom,log_endgame,str_timelimithit,false);
            Room_Score(aroom);
         end
         else
-          if(time_min=g_timelimit)and(time_min_prev<time_min)then room_log_add(aroom,log_suddendeath,str_suddendeath);
+          if(time_min=g_timelimit)and(time_min_prev<time_min)then room_log_add(aroom,log_suddendeath,str_suddendeath,false);
    end
    else
    begin
@@ -602,14 +660,14 @@ begin
       mapname:=mname;
       map_cur:=im;
 
-      room_log_add(aproom,log_map,str_map+': '+mname);
+      room_log_add(aproom,log_map,str_map+': '+mname,false);
 
       FillChar(rgrid,SizeOf(rgrid),0);
       setlength(r_item_l   ,0);r_item_n   :=0;
       setlength(r_spawn_l  ,0);r_spawn_n  :=0;
       setlength(r_missile_l,0);r_missile_n:=0;
       {$IFDEF FULLGAME}
-      setlength(r_decor_l,0);r_decor_n:=0;
+      setlength(r_decor_l  ,0);r_decor_n  :=0;
 
       r:=(hex2b(mbuff[1 ]) shl 4)+hex2b(mbuff[2 ]);
       g:=(hex2b(mbuff[3 ]) shl 4)+hex2b(mbuff[4 ]);
@@ -665,7 +723,7 @@ begin
    mi:=map_name2n(mname);
    if(mi>=g_mapn)then
    begin
-      room_log_add(aproom,log_local,str_nomap+' '+mname);
+      room_log_add(aproom,log_local,str_nomap+mname,false);
       exit;
    end;
    map_LoadToRoomByN(aproom,mi);
@@ -700,12 +758,54 @@ end;
 
 {$IFNDEF FULLGAME}
 
-procedure voteNoForAll(rnum:byte);
+procedure vote_PlayersReset(rnum:byte);
 var p:integer;
 begin
    for p:=0 to MaxPlayers do
     with g_players[p] do
      if(rnum=roomi)then vote:=0;
+end;
+
+procedure vote_pick(aproom:PTRoom;cmdline:shortstring);
+var i,l:byte;
+   argl:array of shortstring;
+   argn:byte;
+begin
+   argn:=0;
+   setlength(argl,argn);
+
+   l:=length(cmdline);
+   while(l>0)do
+   begin
+      i:=pos(' ',cmdline);
+      if(i=0)then
+      begin
+         argn+=1;
+         setlength(argl,argn);
+         argl[argn-1]:=cmdline;
+         l:=0;
+      end
+      else
+        if(i=1)then
+        begin
+           delete(cmdline,1,1);
+           l-=1;
+        end
+        else
+        begin
+           argn+=1;
+           setlength(argl,argn);
+           argl[argn-1]:=copy(cmdline,1,i-1);
+           delete(cmdline,1,i);
+           l-=i;
+        end;
+   end;
+
+   if(argn>0)then
+     room_log_add(aproom,log_chat,'SERVER: pick result: '+argl[random(argn)],false);
+
+   argn:=0;
+   setlength(argl,argn);
 end;
 
 procedure room_VoteProcess(aproom:PTRoom);
@@ -728,8 +828,10 @@ begin
         if(state>ps_spec)and(not bot)and(rnum=roomi)then
         begin
            voted_players+=1;
-           if(vote=vote_yes)then voted_yes+=1;
-           if(vote=vote_no )then voted_no +=1;
+           case vote of
+           vote_yes: voted_yes+=1;
+           vote_no : voted_no +=1;
+           end;
         end;
 
       if(voted_players=0)
@@ -739,17 +841,24 @@ begin
       if(ratio>=vote_ratio)then
       begin
          vote_time:=0;
-
-         room_log_add(aproom,log_local,str_votepassed+vote_cmd+' '+vote_arg);
-         case vote_cmd of
-         cmd_map       : room_MapByName (aproom,vote_arg);
-         cmd_mapnext   : room_MapNext   (aproom);
-         cmd_matchreset: room_MatchReset(aproom);
-         cmd_matchend  : Room_Score(aproom);
-         end;
+         room_log_add(aproom,log_local,str_votepassed+vote_cmd+' '+vote_arg,false);
+         vote_execDelay:=fr_fpsx2;
          exit;
       end;
-      if(vote_time=0)then room_log_add(aproom,log_local,str_votefailed+'('+i2s(voted_yes)+' "yes"/'+i2s(voted_players-voted_yes)+' "no")'+vote_cmd+' '+vote_arg);
+      if(vote_time=0)then room_log_add(aproom,log_local,str_votefailed+'('+i2s(voted_yes)+' "'+str_yes+'"/'+i2s(voted_players-voted_yes)+' "'+str_no+'")'+vote_cmd+' '+vote_arg,false);
+   end;
+   with aproom^ do
+   if(vote_execDelay>0)then
+   begin
+      vote_execDelay-=1;
+      if(vote_execDelay=0)then
+      case vote_cmd of
+      cmd_map       : room_MapByName (aproom,vote_arg);
+      cmd_mapnext   : room_MapNext   (aproom);
+      cmd_matchreset: room_MatchReset(aproom);
+      cmd_matchend  : Room_Score(aproom);
+      cmd_pick      : vote_pick(aproom,vote_arg);
+      end;
    end;
 end;
 
@@ -822,7 +931,8 @@ begin
             vl:=copy(s,1,i-1);
             delete(s,1,i);
             vr:=s;
-         end;
+         end
+         else vl:=s;
 
          case vl of
 rcfg_servername: if(length(sv_name)=0)then begin sv_name:=vr;if(length(vr)>NameLen)then setlength(sv_name,NameLen); end;
@@ -839,35 +949,46 @@ rcfg_servername: if(length(sv_name)=0)then begin sv_name:=vr;if(length(vr)>NameL
                  if(1<=i)and(i<=sv_maxrooms)then
                  begin
                     proom:=@sv_rooms[i-1];
-                    rname       :=proom^.rname;
-                    max_players :=proom^.max_players;
-                    max_clients :=proom^.max_clients;
-                    g_timelimit :=proom^.g_timelimit;
-                    g_fraglimit :=proom^.g_fraglimit;
-                    g_flags     :=proom^.g_flags;
-                    g_scorepause:=proom^.g_scorepause;
-                    bot_maxt    :=proom^.bot_maxt;
-                    vote_ratio  :=proom^.vote_ratio;
-                    maplist_n   :=proom^.maplist_n;
+                    rname        :=proom^.rname;
+                    max_players  :=proom^.max_players;
+                    max_clients  :=proom^.max_clients;
+                    g_timelimit  :=proom^.g_timelimit;
+                    g_fraglimit  :=proom^.g_fraglimit;
+                    g_spreadlimit:=proom^.g_spreadlimit;
+                    g_flags      :=proom^.g_flags;
+                    g_teams      :=proom^.g_teams;
+                    g_scorepause :=proom^.g_scorepause;
+                    bot_maxt     :=proom^.bot_maxt;
+                    vote_ratio   :=proom^.vote_ratio;
+                    maplist_n    :=proom^.maplist_n;
                     setlength(maplist_l,maplist_n);
-                    for w:=0 to maplist_n-1 do maplist_l[w]:=proom^.maplist_l[w];
+                    if(maplist_n>0)then
+                      for w:=0 to maplist_n-1 do maplist_l[w]:=proom^.maplist_l[w];
                  end;
                  end;
-rcfg_voteratio : vote_ratio  := mm3w(0,s2b(vr),100)/100;
-rcfg_roomname  : rname       := vr;
-rcfg_maxplayers: max_players := mm3w(2,s2b(vr),MaxPlayers);
-rcfg_maxclients: max_clients := mm3w(2,s2b(vr),MaxPlayers);
-rcfg_timelimit : g_timelimit := mm3b(0,s2b(vr),60        );
-rcfg_fraglimit : g_fraglimit := mm3i(0,s2i(vr),32000     );
-rcfg_flags     : g_flags     := str2RFlags(vr);
-rcfg_resettime : g_scorepause:= mm3w(5,s2b(vr),59)*fr_fpsx1;
-rcfg_deathtime : g_deathtime := mm3w(0,s2b(vr),60)*fr_fpsx1;
-'bot_skill'    : bot_skill_default:= mm3w(1,s2b(vr),100);
-'bots_SS'      : bot_maxt[0] := mm3w(0,s2b(vr),MaxPlayers);
-'bots_MU'      : bot_maxt[1] := mm3w(0,s2b(vr),MaxPlayers);
-'bots_SO'      : bot_maxt[2] := mm3w(0,s2b(vr),MaxPlayers);
-'bots_OF'      : bot_maxt[3] := mm3w(0,s2b(vr),MaxPlayers);
-'maplistadd'   : room_MapListAdd(@sv_rooms[r-1],vr);
+rcfg_voteratio  : vote_ratio   := mm3w(0,s2b(vr),100)/100;
+rcfg_roomname   : rname        := vr;
+rcfg_maxplayers : max_players  := mm3w(2,s2b(vr),MaxPlayers);
+rcfg_maxclients : max_clients  := mm3w(2,s2b(vr),MaxPlayers);
+rcfg_timelimit  : g_timelimit  := mm3b(0,s2b(vr),60        );
+rcfg_fraglimit  : g_fraglimit  := mm3i(0,s2i(vr),32000     );
+rcfg_spreadlimit: g_spreadlimit:= mm3i(0,s2i(vr),32000     );
+rcfg_flags      : g_flags      := str2RFlags(vr);
+rcfg_teams      : g_teams      := str2RTeams(vr);
+rcfg_resettime  : g_scorepause := mm3w(5,s2b(vr),59)*fr_fpsx1;
+rcfg_deathtime  : g_deathtime  := mm3w(0,s2b(vr),60)*fr_fpsx1;
+'bot_skill'     : bot_skill_default
+                              := mm3w(1,s2b(vr),100       );
+'bots_S'        : bot_maxt[0] := mm3w(0,s2b(vr),MaxPlayers);
+'bots_M'        : bot_maxt[1] := mm3w(0,s2b(vr),MaxPlayers);
+'bots_G'        : bot_maxt[2] := mm3w(0,s2b(vr),MaxPlayers);
+'bots_O'        : bot_maxt[3] := mm3w(0,s2b(vr),MaxPlayers);
+'maplistadd'    : room_MapListAdd(@sv_rooms[r-1],vr);
+'maplistclear'  : begin
+                  maplist_n:=1;
+                  setlength(maplist_l,maplist_n);
+                  maplist_l[0]:=0;
+                  end;
            end;
       end;
       close(f);

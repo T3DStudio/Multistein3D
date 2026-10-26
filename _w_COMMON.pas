@@ -1,5 +1,6 @@
 
 procedure player_State(aplayer:PTPlayer;nstate:byte;log:boolean);forward;
+procedure player_Reset(aplayer:PTPlayer);forward;
 
 function b2s (i:byte    ):shortstring;begin str(i,b2s );end;
 function w2s (i:word    ):shortstring;begin str(i,w2s );end;
@@ -12,21 +13,20 @@ function s2w (str:shortstring):word    ;var t:integer;begin val(str,s2w,t);end;
 function s2i (str:shortstring):integer ;var t:integer;begin val(str,s2i,t);end;
 function s2c (str:shortstring):cardinal;var t:integer;begin val(str,s2c,t);end;
 
-function max2(x1,x2   :integer):integer;begin if(x1>x2)then max2:=x1 else max2:=x2;end;
-function max3(x1,x2,x3:integer):integer;begin max3:=max2(max2(x1,x2),x3);end;
-function min2(x1,x2   :integer):integer;begin if(x1<x2)then min2:=x1 else min2:=x2;end;
-function min3(x1,x2,x3:integer):integer;begin min3:=min2(min2(x1,x2),x3);end;
+function max2i(x1,x2   :integer):integer;begin if(x1>x2)then max2i:=x1 else max2i:=x2;end;
+function max3i(x1,x2,x3:integer):integer;begin max3i:=max2i(max2i(x1,x2),x3);end;
+function min2i(x1,x2   :integer):integer;begin if(x1<x2)then min2i:=x1 else min2i:=x2;end;
+function min3i(x1,x2,x3:integer):integer;begin min3i:=min2i(min2i(x1,x2),x3);end;
 
-function mm3i(mnx,x,mxx:integer):integer;begin mm3i:=min2(mxx,max2(x,mnx)); end;
+function mm3i(mnx,x,mxx:integer):integer;begin mm3i:=min2i(mxx,max2i(x,mnx)); end;
 function mm3w(mnx,x,mxx:word   ):word   ;begin mm3w:=x;if(x<mnx)then mm3w:=mnx;if(x>mxx)then x:=mxx; end;
 function mm3b(mnx,x,mxx:byte   ):byte   ;begin mm3b:=x;if(x<mnx)then mm3b:=mnx;if(x>mxx)then x:=mxx; end;
 
-function i2b(i,max:integer):byte;begin i2b:=byte(mm3i(0,i,max));end;
+function i2b (i,max:integer):byte;begin i2b:=byte(mm3i(0,i,max));end;
+function h2si(i:integer):shortint;begin h2si:=  mm3i(h2si.MinValue,i,h2si.MaxValue);end;
 
-procedure player_Reset(aplayer:PTPlayer); forward;
-
-procedure demo_Processing(aproom:PTRoom); forward;
-procedure demo_init_data(aproom:PTRoom);forward;
+procedure demo_Processing(aproom:PTRoom);forward;
+procedure demo_init_data (aproom:PTRoom);forward;
 procedure demo_break(aproom:PTRoom;error_msg:shortstring;SwitchToMenu:boolean);forward;
 
 function missile_Proc(aroom:PTRoom;amissile:PTMissile):boolean;forward;
@@ -63,6 +63,13 @@ begin
 
    fr_LastTicks   :=fr_CurrentTicks;
 
+   {$IFDEF FULLGAME}
+   {$IFDEF DEBUG}
+   if(sys_uncappedFPS)and(cl_mode=clm_game)
+   then fr_TargetTicks :=fr_BaseTicks + fr_FrameCount
+   else
+   {$ENDIF}
+   {$ENDIF}
    fr_TargetTicks :=fr_BaseTicks + trunc(fr_FrameCount*fr_RateTicks);
 
    if(fr_CurrentTicks<=fr_TargetTicks)
@@ -77,17 +84,26 @@ end;
 
 function str_DateTime:shortstring;
 var YY,MM,DD,H,M,S,MS:word;
+function w2sZ(v,l:word):shortstring;
+begin
+   w2sZ:=w2s(v);
+   if(l>0)then
+     while(length(w2sZ)<l)do
+       insert('0',w2sZ,1);
+end;
 begin
    DeCodeDate(Date,YY,MM,DD);
    DeCodeTime(Time,H,M,S,MS);
-   str_DateTime:=w2s(YY)+'_'+w2s(MM)+'_'+w2s(DD)+' '+w2s(H)+'-'+w2s(M)+'-'+w2s(S)+'-'+w2s(MS);
+   str_DateTime:=w2sZ(YY,4)+'_'+w2sZ(MM,2)+'_'+w2sZ(DD,2)+' '+w2sZ(H,2)+'-'+w2sZ(M,2)+'-'+w2sZ(S,2)+'-'+w2sZ(MS,4);
 end;
 
 {$IFDEF FULLGAME}
 procedure Sound_PlaySource(schunk:TALint;psx,psy:psingle;sx,sy:single); forward;
-procedure draw_last_message; forward;
-procedure net_SendChat(str:shortstring);forward;
-function str2RFlags(s:shortstring):cardinal;forward;
+procedure draw_last_message;                         forward;
+procedure net_SendChat(str:shortstring;team:boolean);forward;
+function str2RFlags(s:shortstring):cardinal;         forward;
+function str2RTeams(s:shortstring):byte;             forward;
+procedure ClearClientEffects;                        forward;
 {$ELSE}
 procedure net_add_ban(ip:cardinal;time:cardinal;comment:shortstring);forward;
 procedure net_del_ban(b:word);forward;
@@ -102,6 +118,9 @@ begin
    {$I-}
    assign(f,str_outlogfn);
    if FileExists(str_outlogfn) then append(f) else rewrite(f);
+   if(log_time)then
+   writeln(f,str_DateTime);
+   log_time:=false;
    writeln(f,comment);
    Close(f);
    {$I+}
@@ -202,11 +221,11 @@ begin
    end;
 end;
 
-function str_RemoveExt(mname:shortstring):shortstring;
+function str_RemoveMapExt(mname:shortstring):shortstring;
 begin
    if(length(mname)>str_mapext_len)
    then setlength(mname,length(mname)-length(str_mapext));
-   str_RemoveExt:=mname;
+   str_RemoveMapExt:=mname;
 end;
 
 function map_new(fn:shortstring):word;
@@ -242,8 +261,8 @@ end;
 
 {$IFDEF FULLGAME}
 procedure ParseRoomDataStr(str:shortstring);
-var i:byte;
-  vr,vl:shortstring;
+var i: byte;
+vr,vl: shortstring;
 begin
    vr:='';
    vl:='';
@@ -256,29 +275,86 @@ begin
    end;
    with sv_clroom^ do
    case vl of
-rcfg_roomname  : rname      := vr;
-rcfg_maxplayers: max_players:= s2b(vr);
-rcfg_maxclients: max_clients:= s2b(vr);
-rcfg_timelimit : g_timelimit:= s2b(vr);
-rcfg_fraglimit : g_fraglimit:= s2i(vr);
-rcfg_flags     : g_flags    := str2RFlags(vr);
+rcfg_roomname   : rname        := vr;
+rcfg_NetUpdRate : sv_maxUpdRate:= s2b(vr)-1;
+rcfg_maxplayers : max_players  := s2b(vr);
+rcfg_maxclients : max_clients  := s2b(vr);
+rcfg_timelimit  : g_timelimit  := s2b(vr);
+rcfg_fraglimit  : g_fraglimit  := s2i(vr);
+rcfg_spreadlimit: g_spreadlimit:= s2i(vr);
+rcfg_flags      : g_flags      := str2RFlags(vr);
+rcfg_teams      : g_teams      := str2RTeams(vr);
    end;
 end;
+function CheckPOVTeam(POVTeam:byte):boolean;
+var POVPlayer:byte;
+begin
+   CheckPOVTeam:=false;
+   with sv_clroom^ do
+     case(demo_cstate=ds_read)of
+     true : POVPlayer:=cam_pl;
+     false: POVPlayer:=cl_playeri;
+     end;
+   if(POVPlayer<=MaxPlayers)then
+     with g_players[POVPlayer] do
+      if(state>ps_none)then
+        if(state=ps_spec)
+        then CheckPOVTeam:=(POVTeam>=MaxTeams)
+        else CheckPOVTeam:=(POVTeam=team);
+end;
+
+function CheckDestMessage(lid:byte):boolean;
+begin
+   CheckDestMessage:=true;
+   if(sv_clroom^.demo_cstate<>ds_read)then
+     case lid of
+     log_team0chat,
+     log_team1chat,
+     log_team2chat,
+     log_team3chat,
+     log_teamOchat: CheckDestMessage:=CheckPOVTeam(lid-log_team0chat);
+     end;
+end;
+
 {$ENDIF}
 
-procedure room_log_add(aroom:PTRoom;arg_id:byte;arg_string:shortstring);
+function ChatLID(SenderPlayer:byte;team:boolean):byte;
+begin
+   ChatLID:=log_chat;
+   if(team)and(SenderPlayer<=MaxPlayers)then
+     with g_players[SenderPlayer] do
+       if(state>ps_none)then
+         if(state=ps_spec)
+         then ChatLID:=log_teamOchat
+         else
+           if(Room_CheckFlag(room,sv_g_teams))then
+             ChatLID:=log_team0chat+team;
+end;
+
+procedure room_log_add(aroom:PTRoom;arg_id:byte;arg_string:shortstring;local:boolean);
 begin
    with aroom^ do
    begin
       {$IFNDEF FULLGAME}
       if(arg_id=log_local)then arg_string:='SERVER: '+arg_string;
       {$ELSE}
-      if(menu_locmatch)then
+      if(not local)then
       {$ENDIF}
       log_n+=1;
 
       log_i+=1;
       if(log_i>MaxRoomLog)then log_i:=0;
+
+      {$IFDEF FULLGAME}
+      if(menu_locmatch)and(sv_clroom^.demo_cstate<>ds_read)then
+      {$ENDIF}
+      case arg_id of
+log_team0chat,
+log_team1chat,
+log_team2chat,
+log_team3chat  : arg_string:='['+str_teams[arg_id-log_team0chat][1]+'] '+arg_string;
+log_teamOchat  : arg_string:='[spec] '+arg_string;
+      end;
 
       with log_l[log_i] do
       begin
@@ -298,32 +374,56 @@ begin
         end;
 
       {$IFDEF FULLGAME}
-      hud_last_mesn+=hud_last_mess_1msg-1;
-      if(hud_last_mesn>hud_last_mess_max)
-      then hud_last_mesn:=hud_last_mess_max-1;
+      if(CheckDestMessage(arg_id))then
+      begin
+         hud_last_mesn+=hud_last_mess_1msg-1;
+         if(hud_last_mesn>hud_last_mess_max)
+         then hud_last_mesn:=hud_last_mess_max-1;
+      end;
 
+      if(player_chat_snd)then
+        case arg_id of
+log_team0chat,
+log_team1chat,
+log_team2chat,
+log_team3chat,
+log_teamOchat: if(CheckPOVTeam(arg_id-log_team0chat))
+                 then Sound_PlaySource(snd_chat ,@cam_x,@cam_y,0,0);
+log_chat     : Sound_PlaySource(snd_chat ,@cam_x,@cam_y,0,0);
+
+        end;
       case arg_id of
-log_winner     : Sound_PlaySource(snd_score,@cam_x,@cam_y,0,0);
-log_chat       : if(player_chat_snd)then
-                 Sound_PlaySource(snd_chat ,@cam_x,@cam_y,0,0);
 log_roomdata   : ParseRoomDataStr(arg_string);
 log_suddendeath: ;
-      end;
-      case arg_id of
-log_matchreset : if(demo_cstate=ds_read)then
-                 begin
-                    time_scorepause:=0;
-                    time_tick:=0;
+log_matchreset : begin
+                    if(demo_cstate=ds_read)then
+                    begin
+                       time_scorepause:=0;
+                       time_tick:=0;
+                    end;
+                    ClearClientEffects;
                  end;
-log_winner,
-log_endgame    : if(demo_cstate=ds_read)
-                 then time_scorepause:=1;
+log_winner     : begin
+                    if(demo_cstate=ds_read)then time_scorepause:=1;
+                    Sound_PlaySource(snd_score,@cam_x,@cam_y,0,0);
+                 end;
+log_endgame    : if(demo_cstate=ds_read)then time_scorepause:=1;
       end;
       {$ELSE}
       writeln('Room #',rnum+1,': ',arg_string);
       {$ENDIF}
    end;
 end;
+
+{$IFNDEF FULLGAME}
+procedure rooms_log_add(arg_id:byte;arg_string:shortstring);
+var r:byte;
+begin
+   if(sv_maxrooms>0)then
+     for r:=0 to sv_maxrooms-1 do
+       room_log_add(@sv_rooms[r],arg_id,arg_string,false);
+end;
+{$ENDIF}
 
 function net_NewPlayer(aip:cardinal;aport:word;aroomi:byte;aname:shortstring;ateam:byte;abot,admin:boolean):byte;
 var p:byte;
@@ -347,8 +447,9 @@ begin
            name       := aname;
            team       := ateam;
            ping       := 0;
-           net_fupd   := false;
-           pause_snap := net_upd_time[net_fupd];
+           net_updRate   := 1;
+           pause_snap := net_updRate;
+           menustate  := false;
            net_NewPlayer:=p;
            player_State(@g_players[p],ps_spec,true);
            {$IFNDEF FULLGAME}
@@ -359,7 +460,7 @@ begin
            ping_r     := false;
            rcon_access:= admin;
            if(rcon_access)then
-           room_log_add(room,log_local,name+str_rconadmin);
+           room_log_add(room,log_local,name+str_rconadmin,false);
            {$ENDIF}
            break;
         end;
@@ -371,7 +472,7 @@ begin
    net_Addr2Player:=0;
    for p:=1 to MaxPlayers do
     with g_players[p] do
-     if(state>ps_none)and(bot=false)and(ip=aip)and(port=aport)then
+     if(state>ps_none)and(not bot)and(ip=aip)and(port=aport)then
      begin
         net_Addr2Player:=p;
         ttl:=0;
@@ -381,7 +482,7 @@ end;
 
 function ip2c(s:shortstring;isip:pboolean):cardinal;
 {$IFNDEF FULLGAME}
-const chars_digits           : set of Char = ['0'..'9'];
+const chars_digits : set of Char = ['0'..'9'];
 {$ENDIF}
 var i,l,
      bn:byte;
@@ -459,6 +560,7 @@ begin
    mgr_item_ammoflame  : char2rcimage:=@spr_rcitem[14  ];
    mgr_item_ammopanzer : char2rcimage:=@spr_rcitem[15  ];
    mgr_item_ammotesla  : char2rcimage:=@spr_rcitem[16  ];
+   mgr_item_hansmode   : char2rcimage:=@spr_rcitem[17  ];
            end;
 end;
 
@@ -550,19 +652,6 @@ begin
    ё        144 #208#129
    }
 end;
-
-{function pchar2ss(pch:Pchar):shortstring;
-type ch = array[0..0] of char;
-var i  : byte;
-begin
-   pchar2ss:='';
-   i:=0;
-   while (ch(pch)[i]<>#0)and(i<255)  do
-   begin
-      pchar2ss:=pchar2ss+ch(pch)[i];
-      i+=1;
-   end;
-end; }
 
 function GetKeyName(k:byte):shortstring;
 begin
@@ -657,7 +746,7 @@ end;
 procedure ToggleConsole;
 begin
    hud_console:=not hud_console;
-   chat_line:=false;
+   chat_line:=0;
    ActKeysClear;
    MouseGrabCheck;
 end;
@@ -721,20 +810,26 @@ begin
       eff_y   :=ay;
       eff_anim:=1;
       eff_type:=et;
+      //writeln('dead ',eff_type);
    end;
 end;
 
-{procedure port_txt(port:pword;ports:pshortstring);
+function txt_TrimString(s:shortstring;l:byte):shortstring;
+var n:byte;
 begin
-   port^ :=swap(s2w (ports^));
-   ports^:=w2s (swap(port^ ));
+   if(length(s)>l)then
+   begin
+      setlength(s,l);
+      n:=0;
+      while(l>0)and(n<3)do
+      begin
+         s[l]:='.';
+         l-=1;
+         n+=1;
+      end;
+   end;
+   txt_TrimString:=s;
 end;
-
-procedure ip_txt(ip:pcardinal;ips:pshortstring);
-begin
-   ip^ :=ip2c(ips^);
-   ips^:=c2ip(ip^ );
-end;  }
 
 procedure txt_ValidateAddr;
 var
@@ -778,12 +873,12 @@ begin
       if(SDLNet_ResolveHost(@ipstruct,pansi,cl_net_svport)=0)then
       begin
          cl_net_svip:=ipstruct.host;
-         room_log_add(sv_clroom,log_local,cl_net_svaddr+': resolved host to '+c2ip(cl_net_svip));
+         room_log_add(sv_clroom,log_local,cl_net_svaddr+': resolved host to '+c2ip(cl_net_svip),true);
       end
       else
       begin
          cl_net_svip:=0;
-         room_log_add(sv_clroom,log_local,cl_net_svaddr+': resolve host fail');
+         room_log_add(sv_clroom,log_local,cl_net_svaddr+': resolve host fail',true);
       end;
    end;
 end;
@@ -833,7 +928,7 @@ begin
    if(length(mapname)>0)
    then s:=str_screenshot+str_DateTime+'_'+mapname+str_ScreenShotExt
    else s:=str_screenshot+str_DateTime            +str_ScreenShotExt;
-   room_log_add(sv_clroom,log_local,s+str_ScreenShotSaved);
+   room_log_add(sv_clroom,log_local,s+str_ScreenShotSaved,true);
 
    s:=s+#0;
 

@@ -169,6 +169,8 @@ begin
    hud_invix     := round(hud_ifscale*9.5);
    hud_gunx      := vid_panelx+trunc(266*vid_hud_scale);
    hud_guny      := vid_log_rh+trunc(9*vid_hud_scale);
+   hud_hansx     := vid_panelx+trunc(300*vid_hud_scale);
+   hud_hansy     := vid_log_rh+trunc(13*vid_hud_scale);
    hud_teamx     := vid_panelx+trunc(238*vid_hud_scale);
    hud_teamy     := vid_log_rh+trunc(14*vid_hud_scale);
    hud_hudhx     := vid_panelx+trunc(146*vid_hud_scale);
@@ -182,9 +184,43 @@ begin
     end;
 end;
 
+function SDL2RendererNext(cur:shortstring;next:boolean):shortstring;
+var i,c  : integer;
+    rInfo: TSDL_RendererInfo;
+begin
+   if(vid_renderers<=1)
+   then SDL2RendererNext:=cur
+   else
+   begin
+      c:=-1;
+      for i:=0 to vid_renderers-1 do
+      begin
+         if(SDL_GetRenderDriverInfo(i,@rInfo)<0)
+         then begin WriteSDLError('SDL_GetRenderDriverInfo '+i2s(i));halt;end
+         else
+           if(rInfo.name=cur)then
+           begin
+              c:=i;
+              break;
+           end;
+      end;
+      if(c<>-1)then
+      begin
+         if(next)
+         then c:=(c+              1) mod vid_renderers
+         else c:=(c+vid_renderers-1) mod vid_renderers;
+         if(SDL_GetRenderDriverInfo(c,@rInfo)<0)
+         then begin WriteSDLError('SDL_GetRenderDriverInfo '+i2s(c));halt;end;
+         SDL2RendererNext:=rInfo.name;
+      end;
+   end;
+end;
+
 procedure ScreenMake;
 const sdl_windows_flags   = SDL_WINDOW_RESIZABLE;
       sdl_windows_flags_f : array[false..true] of cardinal = (sdl_windows_flags,sdl_windows_flags+SDL_WINDOW_FULLSCREEN);
+var i: integer;
+rInfo: TSDL_RendererInfo;
 begin
    window_w    := vid_w;
    window_h    := vid_h;
@@ -199,14 +235,52 @@ begin
    vid_vote_y   := vid_h div 6;
    vid_suddend_y:= vid_h div 10;
 
+   vid_renderers:=SDL_GetNumRenderDrivers;
+
+   if(vid_renderer=nil)then
+   begin
+      if(vid_renderers<0)then begin WriteSDLError('SDL_GetNumRenderDrivers '+i2s(vid_renderers));halt;end;
+      writelog('SDL_GetNumRenderDrivers: '+i2s(vid_renderers));
+      if(vid_renderers>0)then
+      begin
+         if(length(vid_renderer_name)=1)then
+           if(pos(vid_renderer_name,'0123456789')>0)then
+             vid_renderN:=s2i(vid_renderer_name);
+
+         for i:=0 to vid_renderers-1 do
+         begin
+            if(SDL_GetRenderDriverInfo(i,@rInfo)<0)
+            then begin WriteSDLError('SDL_GetRenderDriverInfo '+i2s(i));halt;end
+            else
+            begin
+               WriteLog(i2s(i)+' '+rInfo.name);
+               if(vid_renderN=-1)and(length(vid_renderer_name)>0)then
+                 if(rInfo.name=vid_renderer_name)then vid_renderN:=i;
+            end;
+         end;
+      end
+      else writelog('No render available');
+   end;
+
    if(vid_window=nil)then
    begin
       vid_window := SDL_CreateWindow(str_wcaption, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_w, window_h, sdl_windows_flags_f[vid_fullscreen]);
       if(vid_window=nil)then begin WriteSDLError('SDL_CreateWindow'); halt; end;
    end
    else SDL_SetWindowSize(vid_window,window_w,window_h);
+
    if(vid_renderer=nil)then
-   vid_renderer := SDL_CreateRenderer(vid_window, -1,SDL_RENDERER_ACCELERATED or SDL_RENDERER_TARGETTEXTURE);
+   begin
+      WriteLog('Creating renderer:');
+      vid_renderer := SDL_CreateRenderer(vid_window, vid_renderN,0); //SDL_RENDERER_ACCELERATED or SDL_RENDERER_TARGETTEXTURE
+      if(vid_renderer=nil)
+      then begin WriteSDLError('SDL_CreateRenderer '+i2s(vid_renderN)+' '+vid_renderer_name); halt; end
+      else begin SDL_GetRendererInfo(vid_renderer,@rInfo);vid_renderer_name:=rInfo.name; end;
+   end;
+
+   if(SDL_GetRendererInfo(vid_renderer,@rInfo)<0)
+   then begin WriteSDLError('SDL_GetRenderDriverInfo '+i2s(i));halt;end
+   else WriteLog('Selected renderer: '+rInfo.name);
 
    SDL_RenderSetLogicalSize(vid_renderer,vid_w, vid_h);
 
@@ -362,7 +436,7 @@ begin
      if(log)then WriteLog(fn);
 end;
 
-procedure LoadRCImage(fn:shortstring;pRCImageL,pRCImageD:pTRCImage;transparent:boolean);
+function LoadRCImage(fn:shortstring;pRCImageL,pRCImageD:pTRCImage;transparent:boolean):boolean;
 var surface:pSDL_SURFACE;
     x,y,
     w,h    :word;
@@ -400,12 +474,15 @@ begin
          trunsColor:=trunsColor.MaxValue;
       end;
 
-      rc_z      :=0;
+      rc_z:=0;
       if(trunsColor=c_purple.c)then rc_z:= 1-(rc_h/rc_SpriteHeight);
       if(trunsColor=c_black.c )then rc_z:=(1-(rc_h/rc_SpriteHeight))/2;
    end;
 end;
 begin
+   LoadRCImage:=false;
+   if (pRCImageL=nil)
+   and(pRCImageD=nil)then exit;
    surface:=loadSurf(fn);
    if(surface=nil)then
    begin
@@ -413,6 +490,7 @@ begin
       if(pRCImageD<>nil)then DefaultRCImage(pRCImageD);
       exit;
    end;
+   LoadRCImage:=true;
    w:=surface^.w;
    h:=surface^.h;
    if(w>rc_Texture_w)then w:=rc_Texture_w;
@@ -428,6 +506,24 @@ begin
    SDL_FREESURFACE(surface);
 end;
 
+procedure LoadRCImageArray(fn:shortstring;RCImageArray:pTRCImageArray;transparent:boolean);
+var  i:integer;
+tmpSpr:TRCImage;
+begin
+   i:=0;
+   while(true)do
+   with RCImageArray^ do
+   begin
+      if(LoadRCImage(fn+i2s(i),@tmpSpr,nil,transparent))then
+      begin
+         RCImage_n+=1;
+         setlength(RCImage_l,RCImage_n);
+         RCImage_l[RCImage_n-1]:=tmpSpr;
+      end
+      else break;
+      i+=1;
+   end;
+end;
 
 procedure loadHUDfont(fn:shortstring;reload:boolean);
 var i : byte;
@@ -436,7 +532,7 @@ var i : byte;
 begin
    loadImage(@fspr,fn,false,true,false);
    spr_HUDfont_w:=8;
-   spr_HUDfunt_h:=max2(1,fspr.h);
+   spr_HUDfunt_h:=max2i(1,fspr.h);
    i:=0;
    for c:='0' to ';' do
    with spr_HUDfont[c] do
@@ -452,6 +548,7 @@ begin
       vid_rect^.h:=spr_HUDfunt_h;
 
       SDL_BLITSURFACE(fspr.surface,vid_rect,surface,nil);
+      SDL_SetColorKey(surface,1,SDL_GETpixel(surface,0,0));
 
       texture:=SDL_CreateTextureFromSurface(vid_renderer,surface);
       w :=font_w;
@@ -473,8 +570,8 @@ var i:byte;
 begin
    loadImage(@fspr,fn,false,true,false);
 
-   font_w :=max2(1,fspr.w div 256);
-   font_h :=max2(1,fspr.h);
+   font_w :=max2i(1,fspr.w div 256);
+   font_h :=max2i(1,fspr.h);
    font_lh:=font_h+2;
    font_hh:=font_h div 2;
 
@@ -538,10 +635,10 @@ begin
 
       for i:=0 to WeaponsN do
       begin
-         if(gun_reload[i]<mingunflash)
-         then gun_ganim[i]:=max2(1,gun_reload[i] div 2)
-         else gun_ganim[i]:=max2(3,gun_reload[i]-mingunflash);
-         gun_sanim[i]:=max2(0,gun_ganim[i]-(fr_fpsx1 div 4));
+         if(cdgun_reload[i]<mingunflash)
+         then gun_ganim[i]:=max2i(1,cdgun_reload[i] div 2)
+         else gun_ganim[i]:=max2i(3,cdgun_reload[i]-mingunflash);
+         gun_sanim[i]:=max2i(-1,gun_ganim[i]-fr_fpsh2);
       end;
 
    end;
@@ -556,28 +653,40 @@ begin
    for c:='A' to 'Z' do LoadRCImage('w'+c                ,@spr_rcwall [0,c]       ,@spr_rcwall[1,c]        ,false);
    for c:='a' to 'z' do LoadRCImage('d'+c                ,@spr_rcdecor[c  ]       ,nil                     ,true );
                         LoadRCImage('w_'                 ,@spr_rcwall_hline       ,nil                     ,false);
-   for i:=0   to 16  do LoadRCImage('it'+b2s(i)          ,@spr_rcitem [i  ]       ,nil                     ,true );
+   for i:=0   to 17  do LoadRCImage('it'+b2s(i)          ,@spr_rcitem [i  ]       ,nil                     ,true );
    for i:=0   to 4   do
    for o:=0   to 3   do LoadRCImage('e'+b2s(i)+'_'+b2s(o),@spr_rceffect [i,3-o]   ,nil                     ,true );
-   for i:=0   to 2   do LoadRCImage('flame_'+b2s(i)      ,@spr_rcflame  [i    ]   ,nil                     ,true );
    for i:=0   to 7   do LoadRCImage('rocket_'+b2s(i)     ,@spr_rcrocket [i    ]   ,nil                     ,true );
    for i:=0   to 4   do LoadRCImage('electro_'+b2s(i)    ,@spr_rcelectro[i    ]   ,nil                     ,true );
-   for i:=0   to 4   do LoadRCImage('meat_'+b2s(i)       ,@spr_rcmeat   [i    ]   ,nil                     ,true );
 
+   LoadRCImageArray('flame_',@spr_rcflame ,true);
+   LoadRCImageArray('meat_' ,@spr_rcmeat  ,true);
+   LoadRCImageArray('teslad',@spr_rctdeath,true);
+   LoadRCImageArray('fired' ,@spr_rcfdeath,true);
+
+   LoadRCImage('menustate',@spr_rcmenu,nil,false);
+   loadImage(@spr_HUDMenu,'menustate',true,true,reload);
+
+   loadImage(@spr_HUDgun_hans,'hud_h',true,true,reload);
    for i:=0 to WeaponsN do
    begin
       loadImage(@spr_HUDgun_inv[i],'hud_w'+b2s(i+1),true,true,reload);
       for o:=0 to 1 do
       begin
          loadImage(@spr_HUDgun[i,o],'hud_g'+b2s(i+1)+'_'+b2s(o),true,true,reload);
-         spr_HUDgunX[i,o]:=vid_log_hw-round(spr_HUDgun[i,o].w*vid_hud_scale) div 2;
-         spr_HUDgunY[i,o]:=hud_weapon_y-trunc(spr_HUDgun[i,o].h*vid_hud_scale);
+         spr_HUDgunXs[i,o]:=round(spr_HUDgun[i,o].w*vid_hud_scale) div 4;
+         spr_HUDgunX [i,o]:=vid_log_hw-round(spr_HUDgun[i,o].w*vid_hud_scale) div 2;
+         spr_HUDgunY [i,o]:=hud_weapon_y-trunc(spr_HUDgun[i,o].h*vid_hud_scale);
       end;
    end;
 
    for i:=0 to MaxTeamsI  do
    begin
-      for o:=0 to SkinSprites do LoadRCImage('skin_'+b2s(i)+'_'+b2s(o),@spr_rcteam[i,o],nil,true);
+      for o:=0 to SkinSprites do
+      begin
+      LoadRCImage('skin_'+b2s(i)+'_'+b2s(o),@spr_rcteam[i,o],nil,true);
+      LoadRCImage('hans' +b2s(i)+'_'+b2s(o),@spr_rchans[i,o],nil,true);
+      end;
       loadImage(@spr_HUDteam[i],'hud_team_'+b2s(i),true,true,reload);
    end;
 
